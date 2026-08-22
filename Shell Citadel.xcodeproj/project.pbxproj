@@ -6,6 +6,10 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C040AA023039FFD900F0549A /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = C040AA013039FFD900F0549A /* Citadel */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		C040A9DE3039FA5800F0549A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -51,6 +55,7 @@
 		C040A9CD3039FA5600F0549A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				C040AA023039FFD900F0549A /* Citadel in Frameworks */,
 			);
 		};
 		C040A9DA3039FA5800F0549A /* Frameworks */ = {
@@ -103,6 +108,9 @@
 				C040A9D23039FA5600F0549A /* Shell Citadel */,
 			);
 			name = "Shell Citadel";
+			packageProductDependencies = (
+				C040AA013039FFD900F0549A /* Citadel */,
+			);
 			productName = "Shell Citadel";
 			productReference = C040A9D03039FA5600F0549A /* Shell Citadel.app */;
 			productType = "com.apple.product-type.application";
@@ -181,6 +189,9 @@
 			);
 			mainGroup = C040A9C73039FA5600F0549A;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C040AA003039FFD900F0549A /* XCRemoteSwiftPackageReference "Citadel" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C040A9D13039FA5600F0549A /* Products */;
 			projectDirPath = "";
@@ -548,6 +559,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C040AA003039FFD900F0549A /* XCRemoteSwiftPackageReference "Citadel" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/orlandos-nl/Citadel";
+			requirement = {
+				kind = exactVersion;
+				version = 0.12.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C040AA013039FFD900F0549A /* Citadel */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C040AA003039FFD900F0549A /* XCRemoteSwiftPackageReference "Citadel" */;
+			productName = Citadel;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C040A9C83039FA5600F0549A /* Project object */;
 	validationLevel = 1;

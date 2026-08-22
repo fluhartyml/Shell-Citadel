@@ -57,6 +57,15 @@ actor SSHSession {
 
     var isConnected: Bool { client != nil }
 
+    /// Drops the session without trying to talk to a far end that is already gone.
+    /// Called when a send fails: at that point the connection is not coming back on
+    /// its own, and pretending otherwise is what left Michael with a Connected header
+    /// and no way to reconnect short of relaunching.
+    func markDisconnected() {
+        client = nil
+        trust = nil
+    }
+
     /// True when this host was seen for the first time on the current connection,
     /// so the UI can say so instead of letting a blind first trust pass silently.
     var trustedOnFirstUse: Bool { trust?.didTrustOnFirstUse ?? false }

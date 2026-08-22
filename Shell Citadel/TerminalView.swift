@@ -30,6 +30,7 @@ struct TerminalView: View {
     @State private var workingDirectory = ""
 
     @AppStorage("connectionProfile") private var storedProfile = Data()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
@@ -46,6 +47,15 @@ struct TerminalView: View {
                 SettingsView(profile: $profile, password: $password)
             }
             .task { restoreProfile() }
+            .onChange(of: scenePhase) { _, phase in
+                // iOS suspends a backgrounded app within seconds, so the SSH connection
+                // does not survive a trip to another app or a locked screen. The tmux
+                // session on the Mac does — that is the whole point of attach mode — so
+                // coming back should just pick the conversation up.
+                guard phase == .active, !connected, !isBusy,
+                      profile.isComplete, !password.isEmpty else { return }
+                connect()
+            }
         }
     }
 
@@ -215,6 +225,13 @@ struct TerminalView: View {
                 }
             } catch {
                 append(.system, error.localizedDescription)
+                // The connection is gone. Say so, and put the Connect button back.
+                // Michael went out of wifi range: the error appeared, the header still
+                // read "Connected", the composer still accepted text, and the only way
+                // back was to quit and relaunch the app.
+                await session.markDisconnected()
+                connected = false
+                append(.system, "Disconnected. Tap Connect to try again.")
             }
             isBusy = false
         }
@@ -236,6 +253,8 @@ struct TerminalView: View {
                 append(.system, "Voice channel closed.")
             } catch {
                 append(.system, "Voice channel stopped: \(error.localizedDescription)")
+                await session.markDisconnected()
+                connected = false
             }
         }
     }

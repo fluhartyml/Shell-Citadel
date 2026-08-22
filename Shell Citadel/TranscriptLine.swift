@@ -24,9 +24,20 @@ struct TranscriptLine: Identifiable, Hashable {
     let text: String
     let at: Date
 
-    init(_ source: Source, _ text: String, at: Date = Date()) {
+    /// Whether this line is COMPUTER OUTPUT (monospaced, columns matter) or PROSE
+    /// (proportional, sentences matter).
+    ///
+    /// Michael hit this the first time he read a long reply on the phone: monospaced
+    /// prose in a narrow column wraps into a tall stretched block that is genuinely
+    /// hard to read. Monospace earns its place in `ls` output, where alignment carries
+    /// meaning. It costs legibility everywhere else, and the terminal look is a
+    /// costume — it should not be paid for in readability.
+    let isOutput: Bool
+
+    init(_ source: Source, _ text: String, isOutput: Bool = false, at: Date = Date()) {
         self.source = source
         self.text = text
+        self.isOutput = isOutput
         self.at = at
     }
 

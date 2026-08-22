@@ -87,13 +87,17 @@ struct TerminalView: View {
                     ForEach(lines) { line in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(line.prompt)
+                                .font(.system(.callout, design: .monospaced))
                                 .foregroundStyle(.secondary)
                             Text(line.text)
                                 .textSelection(.enabled)
                                 .foregroundStyle(line.source == .system ? .secondary : .primary)
+                                // Output keeps its columns; prose gets to be readable.
+                                .font(line.isOutput
+                                      ? .system(.callout, design: .monospaced)
+                                      : .system(.callout))
                             Spacer(minLength: 0)
                         }
-                        .font(.system(.body, design: .monospaced))
                         .id(line.id)
                     }
                 }
@@ -184,7 +188,7 @@ struct TerminalView: View {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isBusy else { return }
         draft = ""
-        append(.you, text)
+        append(.you, text, isOutput: profile.mode == .direct)
         isBusy = true
 
         Task {
@@ -198,7 +202,7 @@ struct TerminalView: View {
                         append(.system, "(no output)")
                     } else {
                         for line in output.split(separator: "\n", omittingEmptySubsequences: false) {
-                            append(.claude, String(line))
+                            append(.claude, String(line), isOutput: true)
                         }
                     }
                 case .attach:
@@ -233,8 +237,8 @@ struct TerminalView: View {
         }
     }
 
-    private func append(_ source: TranscriptLine.Source, _ text: String) {
-        lines.append(.init(source, text))
+    private func append(_ source: TranscriptLine.Source, _ text: String, isOutput: Bool = false) {
+        lines.append(.init(source, text, isOutput: isOutput))
     }
 
     // MARK: - Persistence

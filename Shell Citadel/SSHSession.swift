@@ -95,6 +95,30 @@ actor SSHSession {
     ///
     /// stderr is merged in on purpose: a customer who runs a command that fails wants
     /// to hear WHY, and splitting the streams would leave them with silence.
+    /// Where the next command will run. Direct mode opens a fresh shell every time,
+    /// so this is tracked here rather than by the far end.
+    private(set) var workingDirectory = ""
+
+    func setWorkingDirectory(_ path: String) {
+        workingDirectory = path.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Runs `pwd` after the command so a `cd` inside it is picked up. Without this,
+    /// `cd somewhere` appears to work and then silently does nothing.
+    func runTrackingDirectory(_ command: String) async throws -> String {
+        let prefix = workingDirectory.isEmpty ? "" : "cd \(Self.shellQuoted(workingDirectory)) && "
+        // The marker separates the command's own output from the pwd probe, so a
+        // command that happens to print a path cannot be mistaken for the new cwd.
+        let marker = "__SHELL_CITADEL_PWD__"
+        let output = try await run("\(prefix)\(command); printf '\\n%s\\n' \(Self.shellQuoted(marker)); pwd")
+
+        guard let range = output.range(of: marker, options: .backwards) else { return output }
+        let body = String(output[output.startIndex..<range.lowerBound])
+        let pwd = String(output[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        if !pwd.isEmpty { workingDirectory = pwd }
+        return body.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func run(_ command: String) async throws -> String {
         guard let client else { throw SSHSessionError.notConnected }
 

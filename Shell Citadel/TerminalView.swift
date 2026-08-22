@@ -25,6 +25,9 @@ struct TerminalView: View {
     @State private var password = ""
     @State private var session = SSHSession()
     @State private var connected = false
+    /// Shown in the composer so it is always obvious where a command will run —
+    /// the one piece of state a fresh-shell-per-command design would otherwise hide.
+    @State private var workingDirectory = ""
 
     @AppStorage("connectionProfile") private var storedProfile = Data()
 
@@ -107,9 +110,10 @@ struct TerminalView: View {
 
     private var composer: some View {
         HStack(spacing: 10) {
-            Text(">")
-                .font(.system(.body, design: .monospaced))
+            Text(promptLabel)
+                .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
 
             // A UIKit field, not a TextField: SwiftUI cannot switch off smart
             // punctuation, and a keyboard that turns two spaces into ". " or "--"
@@ -137,6 +141,13 @@ struct TerminalView: View {
         .padding(.vertical, 10)
     }
 
+    /// The last path component, so a deep path does not eat the composer.
+    private var promptLabel: String {
+        guard connected, !workingDirectory.isEmpty else { return ">" }
+        let name = (workingDirectory as NSString).lastPathComponent
+        return "\(name) >"
+    }
+
     // MARK: - Actions
 
     private func connect() {
@@ -147,6 +158,7 @@ struct TerminalView: View {
             do {
                 try await session.connect(to: profile.destination, password: password)
                 CredentialStore.save(password: password, for: profile)
+                await session.setWorkingDirectory(profile.startingDirectory)
                 connected = true
                 append(.system, "Connected to \(profile.host) as \(profile.username).")
 
@@ -175,7 +187,8 @@ struct TerminalView: View {
                 switch profile.mode {
                 case .direct:
                     // The answer comes straight back and is ordinary text.
-                    let output = try await session.run(text)
+                    let output = try await session.runTrackingDirectory(text)
+                    workingDirectory = await session.workingDirectory
                     if output.isEmpty {
                         append(.system, "(no output)")
                     } else {

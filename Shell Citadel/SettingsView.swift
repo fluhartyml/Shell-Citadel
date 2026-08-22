@@ -59,6 +59,19 @@ struct SettingsView: View {
                     Text("Kept in the Keychain on this iPhone only — never in iCloud, never in a backup. Turn on Remote Login in System Settings → General → Sharing.")
                 }
 
+                Section {
+                    LabeledContent("Start in") {
+                        TextField("home folder", text: $profile.startingDirectory)
+                            .multilineTextAlignment(.trailing)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                } header: {
+                    Text("Starting folder")
+                } footer: {
+                    Text("Where commands begin. Leave it empty for your home folder. Changing folder with cd works from there, and is remembered between commands.")
+                }
+
                 Section("Mode") {
                     Picker("Mode", selection: $profile.mode) {
                         ForEach(ConnectionMode.allCases, id: \.self) { mode in

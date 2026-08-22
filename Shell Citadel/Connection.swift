@@ -63,6 +63,15 @@ struct ConnectionProfile: Codable, Equatable, Sendable {
 
     var mode: ConnectionMode = .direct
 
+    /// Where commands start. Empty means the account's home directory, which is
+    /// where a fresh SSH shell lands on its own.
+    ///
+    /// This exists because Direct mode runs every command in a NEW shell, so `cd`
+    /// would otherwise evaporate the moment the command ends — type `cd Documents`,
+    /// then `ls`, and you are back home wondering why. The app tracks the directory
+    /// itself and starts each command there.
+    var startingDirectory: String = ""
+
     // MARK: Advanced — attach mode only
 
     /// The tmux session to type into. `tmux ls` on the Mac lists these.

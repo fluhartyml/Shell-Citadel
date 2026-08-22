@@ -27,10 +27,22 @@ Microphone, "hey claude" to start, "full stop" to finish. The wake phrase double
 barge-in. **Known problem to solve here:** dictated speech arrives punctuated and
 spaced, and a shell wants exact characters — the app has to fix that, not the user.
 
-## 5 It reaches the tmux session
-Attach mode wired end to end: `send-keys` in, the voice file tailed out. This is the
-one where he is talking to *Claude* from the phone rather than to a bare shell.
-Needs the Mac side to write spoken text to a known file.
+## 5 ✅ It reaches the tmux session — DONE 2026-08-22, out of order
+Attach mode end to end on the real iPhone 16e: `send-keys` in, the voice file tailed
+out. He typed from the phone, it arrived in the running Claude Code session, and the
+reply came back to the phone. Done the same afternoon as chunk 1, ahead of the plan,
+because it was the thing he actually wanted.
+
+**Two bugs that only hardware could find:**
+- `tmux` was not on the PATH of an SSH *exec* channel (Homebrew's `/opt/homebrew/bin`
+  is absent from `/usr/gnu/bin:/usr/local/bin:/bin:/usr/bin:.`). Now resolved by
+  absolute path, with real sentences for "not installed" and "no such session".
+- The voice path's leading `~` was inside single quotes, so it never expanded — the
+  app tailed a directory literally named `~`, silently, forever. Fixed, and the
+  channel now announces itself so silence cannot be mistaken for breakage.
+
+**Known gap, not yet handled:** backgrounding the app or locking the screen likely
+drops the connection.
 
 ## 6 Ship it
 App Store listing, the Haynes/Chilton-style manual covering the tmux upgrade path,

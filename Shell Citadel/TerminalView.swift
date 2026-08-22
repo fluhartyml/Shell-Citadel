@@ -98,6 +98,7 @@ struct TerminalView: View {
                                       : .system(.callout))
                             Spacer(minLength: 0)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .id(line.id)
                     }
                 }
@@ -131,6 +132,7 @@ struct TerminalView: View {
                          // send is guarded instead.
                          isEnabled: connected,
                          onSubmit: send)
+                .frame(maxWidth: .infinity)
                 .frame(height: 30)
 
             if isBusy {

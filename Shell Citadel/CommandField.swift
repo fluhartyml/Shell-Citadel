@@ -50,7 +50,12 @@ struct CommandField: UIViewRepresentable {
         field.font = .monospacedSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize,
                                            weight: .regular)
         field.adjustsFontForContentSizeCategory = true
+        // The field must never DRIVE the layout's width. A UITextField's intrinsic
+        // width grows with its content, and left alone it widened the whole column —
+        // which stretched the transcript above it and cost those lines their wrapping.
+        // Michael saw his own typing push my sentences out of shape.
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         field.addTarget(context.coordinator,
                         action: #selector(Coordinator.textChanged(_:)),

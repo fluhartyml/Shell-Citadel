@@ -111,13 +111,14 @@ struct TerminalView: View {
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.secondary)
 
-            TextField(connected ? "Say something" : "Connect first", text: $draft, axis: .vertical)
-                .font(.system(.body, design: .monospaced))
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .lineLimit(1...4)
-                .disabled(!connected || isBusy)
-                .onSubmit(send)
+            // A UIKit field, not a TextField: SwiftUI cannot switch off smart
+            // punctuation, and a keyboard that turns two spaces into ". " or "--"
+            // into an em dash corrupts commands. See CommandField.
+            CommandField(text: $draft,
+                         placeholder: connected ? "Say something" : "Connect first",
+                         isEnabled: connected && !isBusy,
+                         onSubmit: send)
+                .frame(height: 30)
 
             if isBusy {
                 ProgressView()

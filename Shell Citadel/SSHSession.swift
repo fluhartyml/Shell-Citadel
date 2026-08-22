@@ -97,9 +97,30 @@ actor SSHSession {
     /// to hear WHY, and splitting the streams would leave them with silence.
     func run(_ command: String) async throws -> String {
         guard let client else { throw SSHSessionError.notConnected }
-        var buffer = try await client.executeCommand(command, mergeStreams: true)
-        let text = buffer.readString(length: buffer.readableBytes) ?? ""
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Collected by hand rather than via executeCommand(), because that throws on a
+        // non-zero exit and DISCARDS the output — leaving the user with
+        // "CommandFailed error 1" when the Mac actually said "command not found".
+        // A failed command's message is the most useful thing on the screen; losing it
+        // to an exit code is the opposite of helping.
+        var collected = ""
+        let stream = try await client.executeCommandStream(command)
+        do {
+            for try await chunk in stream {
+                switch chunk {
+                case .stdout(let buffer), .stderr(let buffer):
+                    var reader = buffer
+                    collected += reader.readString(length: reader.readableBytes) ?? ""
+                }
+            }
+        } catch {
+            // The command ran and failed. Show what it said; only fall back to the
+            // raw error when the shell gave us nothing to show.
+            let text = collected.trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.isEmpty { throw error }
+            return text
+        }
+        return collected.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Attach mode  —  tmux send-keys

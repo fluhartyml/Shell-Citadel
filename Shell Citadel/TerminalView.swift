@@ -120,7 +120,12 @@ struct TerminalView: View {
             // into an em dash corrupts commands. See CommandField.
             CommandField(text: $draft,
                          placeholder: connected ? "Say something" : "Connect first",
-                         isEnabled: connected && !isBusy,
+                         // NOT disabled while busy: disabling a UITextField makes iOS
+                         // resign first responder, which drops the keyboard after every
+                         // single command and never brings it back. Michael hit this the
+                         // moment he tried to hold a conversation from the phone. The
+                         // send is guarded instead.
+                         isEnabled: connected,
                          onSubmit: send)
                 .frame(height: 30)
 
@@ -177,7 +182,7 @@ struct TerminalView: View {
 
     private func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty, !isBusy else { return }
         draft = ""
         append(.you, text)
         isBusy = true

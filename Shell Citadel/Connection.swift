@@ -81,6 +81,32 @@ struct ConnectionProfile: Codable, Equatable, Sendable {
     /// Only meaningful in attach mode, because a redraw stream cannot be spoken.
     var voicePath: String = "~/.claude-voice/out.txt"
 
+    // MARK: - Decoding that survives the model growing
+    //
+    // Swift's synthesised decoder requires EVERY key to be present, even one with a
+    // default value. So adding a single property to this struct makes every stored
+    // profile fail to decode — and because the call site uses `try?`, it fails
+    // SILENTLY and the user's settings reset to blank. That is exactly what happened
+    // when `startingDirectory` was added: Michael's saved Mac vanished.
+    //
+    // decodeIfPresent with a fallback per field means an old profile still loads and
+    // simply picks up defaults for anything it predates. Losing a user's typed
+    // settings to a code change is not an acceptable failure mode.
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? "My Mac"
+        host = try c.decodeIfPresent(String.self, forKey: .host) ?? ""
+        port = try c.decodeIfPresent(Int.self, forKey: .port) ?? 22
+        username = try c.decodeIfPresent(String.self, forKey: .username) ?? ""
+        mode = try c.decodeIfPresent(ConnectionMode.self, forKey: .mode) ?? .direct
+        startingDirectory = try c.decodeIfPresent(String.self, forKey: .startingDirectory) ?? ""
+        tmuxSession = try c.decodeIfPresent(String.self, forKey: .tmuxSession) ?? "claude"
+        voicePath = try c.decodeIfPresent(String.self, forKey: .voicePath) ?? "~/.claude-voice/out.txt"
+    }
+
     var isComplete: Bool {
         !host.trimmingCharacters(in: .whitespaces).isEmpty
         && !username.trimmingCharacters(in: .whitespaces).isEmpty

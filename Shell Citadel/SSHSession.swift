@@ -35,10 +35,17 @@ struct SSHDestination: Sendable, Equatable {
 
 enum SSHSessionError: Error, LocalizedError {
     case notConnected
+    case tmuxNotFound
+    case noSuchSession(String)
 
     var errorDescription: String? {
         switch self {
-        case .notConnected: "Not connected."
+        case .notConnected:
+            "Not connected."
+        case .tmuxNotFound:
+            "tmux is not installed on the Mac, and Attach mode needs it. Direct mode does not \u{2014} switch modes in Connection settings, or install tmux on the Mac."
+        case .noSuchSession(let name):
+            "No tmux session named \(name) is running on the Mac. Run tmux ls there to see which sessions exist."
         }
     }
 }
@@ -156,12 +163,49 @@ actor SSHSession {
     /// inside it; the Enter that submits is a separate, deliberate key.
     func send(_ text: String) async throws {
         guard let client, let destination else { throw SSHSessionError.notConnected }
+        _ = client
 
+        let tmux = try await tmuxExecutable()
         let session = Self.shellQuoted(destination.tmuxSession)
+
+        // Check the session exists first, so a typo in the session name produces a
+        // sentence instead of an exit code.
+        let check = try? await run("\(tmux) has-session -t \(session) && echo OK")
+        guard check?.contains("OK") == true else {
+            throw SSHSessionError.noSuchSession(destination.tmuxSession)
+        }
+
         let body = Self.shellQuoted(text)
-        _ = try await client.executeCommand(
-            "tmux send-keys -t \(session) -l \(body) && tmux send-keys -t \(session) Enter"
-        )
+        _ = try await run("\(tmux) send-keys -t \(session) -l \(body) && \(tmux) send-keys -t \(session) Enter")
+    }
+
+    // MARK: - Finding tmux
+
+    private var cachedTmuxPath: String?
+
+    /// FOUND THE HARD WAY, on a real phone: an SSH *exec* channel is not a login
+    /// shell, so it gets a minimal PATH \u{2014} on this Mac
+    /// `/usr/gnu/bin:/usr/local/bin:/bin:/usr/bin:.` \u{2014} which does NOT include
+    /// Homebrew's `/opt/homebrew/bin`. Plain `tmux` is therefore "command not found",
+    /// and Citadel reports that as `CommandFailed error 1`, which tells nobody anything.
+    ///
+    /// Resolved once per connection and cached. If tmux genuinely is not installed,
+    /// that is a sentence the user can act on, not an error code.
+    private func tmuxExecutable() async throws -> String {
+        if let cachedTmuxPath { return cachedTmuxPath }
+
+        // Explicit locations first (these work in the minimal PATH), then a login
+        // shell as a fallback for anyone with tmux somewhere unusual.
+        let probe = "for p in /opt/homebrew/bin/tmux /usr/local/bin/tmux /usr/bin/tmux /bin/tmux; do [ -x \"$p\" ] && echo \"$p\" && exit 0; done; command -v tmux 2>/dev/null || true"
+        let found = (try? await run(probe))?
+            .split(separator: "\n").first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+
+        guard !found.isEmpty else { throw SSHSessionError.tmuxNotFound }
+        let quoted = Self.shellQuoted(found)
+        cachedTmuxPath = quoted
+        return quoted
     }
 
     // MARK: - Voice  ←  tail -f

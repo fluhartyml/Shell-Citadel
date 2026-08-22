@@ -43,20 +43,26 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    // .textContentType is what makes iOS offer AutoFill from the
+                    // Passwords app. Michael's point, and a better answer than syncing
+                    // anything ourselves: the credential is already saved on his
+                    // devices, so the OS can fill it and this app stores nothing new.
                     LabeledContent("User name") {
                         TextField("your macOS account", text: $profile.username)
                             .multilineTextAlignment(.trailing)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .textContentType(.username)
                     }
                     LabeledContent("Password") {
                         SecureField("required", text: $password)
                             .multilineTextAlignment(.trailing)
+                            .textContentType(.password)
                     }
                 } header: {
                     Text("Sign in")
                 } footer: {
-                    Text("Kept in the Keychain on this iPhone only — never in iCloud, never in a backup. Turn on Remote Login in System Settings → General → Sharing.")
+                    Text("Tap the password field to fill it from Passwords. It is kept in this device's Keychain — never in iCloud, never in a backup. Turn on Remote Login on the Mac, in System Settings → General → Sharing.")
                 }
 
                 Section {

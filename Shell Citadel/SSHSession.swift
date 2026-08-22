@@ -175,7 +175,13 @@ actor SSHSession {
             throw SSHSessionError.noSuchSession(destination.tmuxSession)
         }
 
-        let body = Self.shellQuoted(text)
+        // THE TIMESTAMP IS FOR CLAUDE, NOT FOR MICHAEL. His words, from outside the
+        // house: "I don't need to see the time stamps you do." A long turn means several
+        // of his messages arrive together, and without a sent-time Claude cannot tell
+        // which are current and which were overtaken minutes ago. Showing them in the
+        // app would have solved the wrong half of it.
+        let stamped = "[\(Self.sentStamp())] \(text)"
+        let body = Self.shellQuoted(stamped)
         _ = try await run("\(tmux) send-keys -t \(session) -l \(body) && \(tmux) send-keys -t \(session) Enter")
     }
 
@@ -249,6 +255,14 @@ actor SSHSession {
                 }
             }
         }
+    }
+
+    /// Local time, 24-hour, for the sent-stamp.
+    static func sentStamp(_ date: Date = Date()) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "HH:mm"
+        return f.string(from: date)
     }
 
     // MARK: - Quoting

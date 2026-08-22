@@ -97,16 +97,6 @@ struct TerminalView: View {
                                       ? .system(.callout, design: .monospaced)
                                       : .system(.callout))
                             Spacer(minLength: 0)
-
-                            // Michael, using it outside: "these messages need time stamps
-                            // because of the long delay in your response i have sent like
-                            // tin gazillion messages". The Date was always on the line;
-                            // it was simply never shown, so a burst of replies arriving at
-                            // once gave him no way to tell what answered what.
-                            Text(line.at, format: .dateTime.hour().minute())
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                                .monospacedDigit()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .id(line.id)

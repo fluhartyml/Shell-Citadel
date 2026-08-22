@@ -212,9 +212,16 @@ struct TerminalView: View {
     private func startVoiceChannel() {
         Task {
             do {
-                for try await line in try await session.voiceLines() {
+                let lines = try await session.voiceLines()
+                // Said out loud, because this channel failed SILENTLY once: the
+                // path never resolved, nothing arrived, and nothing complained.
+                // A channel that is listening should say so, so that silence
+                // afterwards means "nothing was written" and not "it is broken".
+                append(.system, "Listening for replies on \(profile.voicePath).")
+                for try await line in lines {
                     append(.claude, line)
                 }
+                append(.system, "Voice channel closed.")
             } catch {
                 append(.system, "Voice channel stopped: \(error.localizedDescription)")
             }

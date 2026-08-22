@@ -217,7 +217,7 @@ actor SSHSession {
     func voiceLines() async throws -> AsyncThrowingStream<String, Error> {
         guard let client, let destination else { throw SSHSessionError.notConnected }
 
-        let path = Self.shellQuoted(destination.voicePath)
+        let path = Self.remotePath(destination.voicePath)
         let raw = try await client.executeCommandStream(
             "mkdir -p \"$(dirname \(path))\" && touch \(path) && tail -n 0 -F \(path)",
             inShell: true
@@ -257,6 +257,25 @@ actor SSHSession {
     /// only case needing care is a single quote itself, which is closed, escaped and
     /// reopened. Building these commands by interpolation without this is how a
     /// spoken sentence containing a quote or a semicolon becomes a shell command.
+    /// Quotes a path while still letting a LEADING `~/` mean the remote home folder.
+    ///
+    /// FOUND ON HARDWARE: shellQuoted() wraps everything in single quotes, and inside
+    /// single quotes `~` is a literal character. So the default voice path became a
+    /// file inside a directory actually NAMED "~", which does not exist — the app
+    /// tailed nothing, forever, without complaining. Michael could send to the Mac and
+    /// never saw a reply come back.
+    ///
+    /// `"$HOME"` is used rather than expanding here, because only the far end knows
+    /// whose home it is.
+    static func remotePath(_ value: String) -> String {
+        if value == "~" { return "\"$HOME\"" }
+        if value.hasPrefix("~/") {
+            let rest = String(value.dropFirst(2))
+            return "\"$HOME\"/" + shellQuoted(rest)
+        }
+        return shellQuoted(value)
+    }
+
     static func shellQuoted(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }

@@ -83,7 +83,26 @@ actor SSHSession {
         trust = nil
     }
 
-    // MARK: - Input  →  tmux send-keys
+    // MARK: - Direct mode  —  run a command, read the answer
+
+    /// Runs one command and returns its output as text.
+    ///
+    /// This is the mode a customer with one Mac uses, and the reason it needs no tmux
+    /// and no side channel: a discrete command produces ordinary text. `ls`, `git
+    /// status`, `df -h` come back readable — and therefore SPEAKABLE — because nothing
+    /// interactive is redrawing a screen. The escape-code problem belongs to attach
+    /// mode alone.
+    ///
+    /// stderr is merged in on purpose: a customer who runs a command that fails wants
+    /// to hear WHY, and splitting the streams would leave them with silence.
+    func run(_ command: String) async throws -> String {
+        guard let client else { throw SSHSessionError.notConnected }
+        var buffer = try await client.executeCommand(command, mergeStreams: true)
+        let text = buffer.readString(length: buffer.readableBytes) ?? ""
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // MARK: - Attach mode  —  tmux send-keys
 
     /// Types a line into the running tmux session, exactly as if it had been typed at
     /// the keyboard. The MacBook attached to the same session watches it appear.

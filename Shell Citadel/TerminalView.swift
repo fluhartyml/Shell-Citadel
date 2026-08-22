@@ -131,6 +131,7 @@ struct TerminalView: View {
                          // moment he tried to hold a conversation from the phone. The
                          // send is guarded instead.
                          isEnabled: connected,
+                         strict: profile.mode == .direct,
                          onSubmit: send)
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)

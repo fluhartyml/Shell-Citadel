@@ -189,7 +189,11 @@ actor SSHSession {
         // of his messages arrive together, and without a sent-time Claude cannot tell
         // which are current and which were overtaken minutes ago. Showing them in the
         // app would have solved the wrong half of it.
-        let stamped = "[\(Self.sentStamp())] \(text)"
+        // The SOURCE tag. Michael, 2026-08-23: "give shell citadel the SC tag please."
+        // Both apps send through the same tmux session, so without this Claude cannot
+        // tell which one he is typing in. Lighthouse sends LH from the phone and Mac
+        // from the desk; this is the third.
+        let stamped = "[\(Self.sentStamp()) SC] \(text)"
         let body = Self.shellQuoted(stamped)
         _ = try await run("\(tmux) send-keys -t \(session) -l \(body) && \(tmux) send-keys -t \(session) Enter")
     }

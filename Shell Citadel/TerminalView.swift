@@ -115,6 +115,14 @@ struct TerminalView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 12)
             }
+            // A HARD top edge, not the default soft one. Michael, 2026-08-23, from a
+            // screenshot: his own line was sitting behind the translucent bar and the
+            // settings button, half readable. The soft glass edge is right for content
+            // you glance at — it hints that there is more above. This transcript is the
+            // RECORD he goes back to and re-reads, and a line he cannot read is a line he
+            // has lost. `.hard` gives the bar a real edge so nothing bleeds through it.
+            // (`scrollEdgeEffectStyle` is iOS 26+; the app's floor is 27, so no guard.)
+            .scrollEdgeEffectStyle(.hard, for: .top)
             .onChange(of: lines.count) {
                 if let last = lines.last {
                     withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
@@ -191,7 +199,7 @@ struct TerminalView: View {
                 }
                 if profile.mode == .attach { startVoiceChannel() }
             } catch {
-                append(.system, error.localizedDescription)
+                append(.system, Diagnosis.sentence(for: error, while: .connecting))
             }
             isBusy = false
         }
@@ -224,7 +232,7 @@ struct TerminalView: View {
                     try await session.send(text)
                 }
             } catch {
-                append(.system, error.localizedDescription)
+                append(.system, Diagnosis.sentence(for: error, while: .sending))
                 // The connection is gone. Say so, and put the Connect button back.
                 // Michael went out of wifi range: the error appeared, the header still
                 // read "Connected", the composer still accepted text, and the only way
@@ -287,7 +295,7 @@ struct TerminalView: View {
                 }
                 append(.system, "Voice channel closed.")
             } catch {
-                append(.system, "Voice channel stopped: \(error.localizedDescription)")
+                append(.system, Diagnosis.sentence(for: error, while: .listening))
                 await session.markDisconnected()
                 connected = false
             }

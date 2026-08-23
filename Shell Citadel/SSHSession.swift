@@ -225,16 +225,41 @@ actor SSHSession {
 
     // MARK: - Voice  ←  tail -f
 
+    /// How many bytes the voice file currently holds, so the caller can tell how much of
+    /// what arrives is CATCH-UP and how much is live. Returns 0 if it cannot be read —
+    /// a missing file is not an error here, it is simply nothing said yet.
+    func voiceFileSize() async throws -> Int {
+        guard destination != nil else { throw SSHSessionError.notConnected }
+        let path = Self.remotePath(destination!.voicePath)
+        // run() rather than executeCommand(): the latter throws on a non-zero exit and
+        // throws the output away with it, which is how "command not found" became
+        // "CommandFailed error 1" the first time round.
+        let text = try await run("mkdir -p \"$(dirname \(path))\" && touch \(path) && wc -c < \(path)")
+        return Int(text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+    }
+
     /// Sentences Claude has chosen to say, one line at a time, as they are written.
     ///
-    /// `tail -n 0 -F` starts at the end (no replay of an old session) and keeps
-    /// following the file even if it is rotated or recreated.
-    func voiceLines() async throws -> AsyncThrowingStream<String, Error> {
+    /// THE PASSIVE QUEUE (Michael, 2026-08-23). `startingAtByte` resumes from where this
+    /// phone last read, so locking the screen or walking out of range costs nothing —
+    /// the Mac's file kept everything, and the reconnect fills in the gap in order.
+    ///
+    /// `startingAtByte == 0` keeps the ORIGINAL behaviour, `tail -n 0 -F`: start at the
+    /// end. That is right for a first-ever connection, where replaying months of an old
+    /// session at someone would be worse than showing them nothing.
+    ///
+    /// `-F` (rather than `-f`) is kept either way: it follows the file across rotation
+    /// and recreation instead of holding a dead handle.
+    ///
+    /// See [[VoiceMark]] for why the offset is bytes and not lines.
+    func voiceLines(startingAtByte startOffset: Int = 0) async throws -> AsyncThrowingStream<VoiceChunk, Error> {
         guard let client, let destination else { throw SSHSessionError.notConnected }
 
         let path = Self.remotePath(destination.voicePath)
+        // `tail -c +N` is 1-based: +1 is the whole file, so N is (bytes read) + 1.
+        let follow = startOffset > 0 ? "tail -c +\(startOffset + 1) -F \(path)" : "tail -n 0 -F \(path)"
         let raw = try await client.executeCommandStream(
-            "mkdir -p \"$(dirname \(path))\" && touch \(path) && tail -n 0 -F \(path)",
+            "mkdir -p \"$(dirname \(path))\" && touch \(path) && \(follow)",
             inShell: true
         )
 
@@ -244,6 +269,10 @@ actor SSHSession {
                 // lines are held back until their newline shows up. Speaking half a
                 // sentence would be worse than speaking it a moment later.
                 var pending = ""
+                // The mark only ever advances over COMPLETE lines. Whatever is still in
+                // `pending` when a connection dies is left uncounted on purpose, so that
+                // sentence is re-read whole next time rather than resumed mid-word.
+                var consumed = startOffset
                 do {
                     for try await chunk in raw {
                         guard case .stdout(let outBuffer) = chunk else { continue }
@@ -254,8 +283,14 @@ actor SSHSession {
                         while let newline = pending.firstIndex(of: "\n") {
                             let line = String(pending[pending.startIndex..<newline])
                             pending = String(pending[pending.index(after: newline)...])
+                            // Counted whether or not it is shown: blank separator lines
+                            // occupy bytes too, and skipping them in the count would
+                            // walk the mark backwards a little on every message.
+                            consumed += line.utf8.count + 1
                             let trimmed = line.trimmingCharacters(in: .whitespaces)
-                            if !trimmed.isEmpty { continuation.yield(trimmed) }
+                            if !trimmed.isEmpty {
+                                continuation.yield(VoiceChunk(text: trimmed, offsetAfter: consumed))
+                            }
                         }
                     }
                     continuation.finish()

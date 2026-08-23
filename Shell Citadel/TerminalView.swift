@@ -237,18 +237,53 @@ struct TerminalView: View {
         }
     }
 
-    /// Attach mode only: sentences appear as the session writes them.
+    /// Attach mode only: sentences appear as the session writes them — and, since
+    /// 2026-08-23, the ones written while this phone was away arrive first.
+    ///
+    /// THE PASSIVE QUEUE. Michael locks his phone by habit before pocketing it, which
+    /// backgrounds the app and kills the connection. Nothing on the Mac stops — that is
+    /// what tmux is for — but the channel used to resume at the END of the file, so
+    /// every sentence written during the lock was skipped, permanently and silently.
+    /// The file kept all of it the whole time. See [[VoiceMark]].
     private func startVoiceChannel() {
         Task {
+            let destination = profile.destination
             do {
-                let lines = try await session.voiceLines()
+                var mark = VoiceMark.offset(for: destination)
+                let size = (try? await session.voiceFileSize()) ?? 0
+
+                // The file got SMALLER than where this phone had read to, so it was
+                // emptied, rotated or replaced. The old offset now points into the
+                // middle of different content; keeping it would silently skip real
+                // lines, which is the exact failure this whole change exists to remove.
+                if mark > size {
+                    VoiceMark.clear(for: destination)
+                    mark = 0
+                    append(.system, "The replies file was replaced on the Mac — starting fresh.")
+                }
+
+                let missed = max(0, size - mark)
+                let lines = try await session.voiceLines(startingAtByte: mark)
+
                 // Said out loud, because this channel failed SILENTLY once: the
                 // path never resolved, nothing arrived, and nothing complained.
                 // A channel that is listening should say so, so that silence
                 // afterwards means "nothing was written" and not "it is broken".
                 append(.system, "Listening for replies on \(profile.voicePath).")
-                for try await line in lines {
-                    append(.claude, line)
+                if mark > 0 && missed > 0 {
+                    // Without this the catch-up reads as Claude suddenly talking to
+                    // itself. Saying where the boundary is costs one line.
+                    append(.system, "You were away — catching up on what you missed.")
+                }
+
+                var caughtUp = !(mark > 0 && missed > 0)
+                for try await chunk in lines {
+                    append(.claude, chunk.text)
+                    VoiceMark.set(chunk.offsetAfter, for: destination)
+                    if !caughtUp && chunk.offsetAfter >= size {
+                        caughtUp = true
+                        append(.system, "Caught up. Anything below this is live.")
+                    }
                 }
                 append(.system, "Voice channel closed.")
             } catch {

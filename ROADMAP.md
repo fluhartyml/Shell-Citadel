@@ -17,7 +17,36 @@ Icon built in Image Producer and installed. Light + dark, never tinted — his a
 Claude's. Short, visual, and it makes the thing feel like a product instead of a test
 harness. **Recommended next.**
 
-## 3 It speaks the answer
+## 2.5 📷 Photos and screenshots, phone → Claude — **PRIORITY, above 3 and 4**
+Michael, 2026-08-23: *"i am going to need a way for citidel to send you photos and
+screenshots"* and, an hour later, *"stt and tts is lower priority than getting a photo or
+screenshot from my phone to you."* **His ordering, stated plainly — this outranks both
+speech chunks.**
+
+**Why it is not a nice-to-have.** Two separate needs landed on it the same morning:
+
+- **It is the missing eye for the homelab.** The bring-up he wants to run through this app
+  starts at the rack, and Claude is blind there — `screencapture` sees the MacBook's screen,
+  not a cable, a label, or an amber light. Everything in phase 1 of the homelab plan needs
+  him to show me something physical.
+- **It is how he reports a bug from the phone.** All day he has been saying *"please look"*
+  and I capture his Mac. From the couch or the porch, with only the phone, there is no
+  equivalent — he can describe an app's misbehaviour but not show it.
+
+**MAP BEFORE CODING — his standing rule, and this one earns it.** SSH can carry the bytes
+without difficulty; none of the real questions are about transport:
+
+- Where do they land on the Mac, and under what name, so I can find them without being told?
+- How does he pick or take one from inside the app — camera, photo library, screenshot roll?
+- **How do I learn a new one arrived?** This is the interesting half. Today the traffic is
+  one-directional per turn; a photo dropped on the Mac is invisible to me until something
+  says so. The voice file solved the same shape in the other direction.
+- Photo-library access needs a usage string and a permission prompt, and the Photos
+  permission is a different one from the camera's.
+- **Privacy stays the product's spine:** the file goes to *his* Mac and nowhere else. No
+  service, no upload, no account. That property must survive this feature intact.
+
+## 3 It speaks the answer — ⏬ below 2.5, his call 2026-08-23
 Direct-mode output read aloud on the phone. No wake phrase yet, no microphone — just
 run a command and hear the result with the screen off. This is the first moment the
 app does something a normal SSH client does not.

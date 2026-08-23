@@ -93,6 +93,11 @@ be obvious rather than something he had to notice. His report: **"All five showe
 disconnect reconnect dialogue showed."** No line lost, and the new dropped-connection sentence
 appeared in place of `NIOSSH error 1`.
 
+**Both boundary markers confirmed by him.** *"You were away — catching up on what you missed"*
+above the replayed block (10:23), and *"Caught up. Anything below this is live"* below it — the
+latter seen at 09:26 and the reason he noticed the fix at all. **Nothing about the passive queue
+is left unverified.**
+
 **What the gap was.** Backgrounding the app or locking the screen does drop the connection, and iOS suspending a backgrounded app is not
 something the app can argue with. But the connection was never the damage: the voice
 channel opened with `tail -n 0 -F` — *start at the end* — so every reply written while the

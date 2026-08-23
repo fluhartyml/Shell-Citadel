@@ -22,10 +22,21 @@ Direct-mode output read aloud on the phone. No wake phrase yet, no microphone �
 run a command and hear the result with the screen off. This is the first moment the
 app does something a normal SSH client does not.
 
-## 4 You speak to it
+## 4 You speak to it — ⏸ BACK BURNER, his call 2026-08-23
 Microphone, "hey claude" to start, "full stop" to finish. The wake phrase doubles as
 barge-in. **Known problem to solve here:** dictated speech arrives punctuated and
 spaced, and a shell wants exact characters — the app has to fix that, not the user.
+
+**Parked, and for a good reason:** *"i can still use iOS to dictate to you so that's on
+the back burner."* Most of this chunk arrived for free on 2026-08-22 by *un*-breaking the
+keyboard — the composer had been hardened for shell commands, and in Attach mode he is
+writing English, not commands. Making the keyboard mode-aware handed back the predictive
+bar and the system dictation microphone. **He has been dictating to Claude from the porch
+ever since.**
+
+So what is left here is only the hands-free half: a wake phrase, barge-in, and never
+touching the screen. That is a refinement on something that already works, not a
+prerequisite for anything. **Do not re-propose it.** He will say when.
 
 ## 5 ✅ It reaches the tmux session — DONE 2026-08-22, out of order
 Attach mode end to end on the real iPhone 16e: `send-keys` in, the voice file tailed
@@ -41,8 +52,17 @@ because it was the thing he actually wanted.
   app tailed a directory literally named `~`, silently, forever. Fixed, and the
   channel now announces itself so silence cannot be mistaken for breakage.
 
-**Known gap, not yet handled:** backgrounding the app or locking the screen likely
-drops the connection.
+**Known gap — ✅ HANDLED 2026-08-23, the passive queue.** Backgrounding the app or
+locking the screen does drop the connection, and iOS suspending a backgrounded app is not
+something the app can argue with. But the connection was never the damage: the voice
+channel opened with `tail -n 0 -F` — *start at the end* — so every reply written while the
+phone was away was skipped **permanently and silently.**
+
+His name for the fix, from his front porch: *"we deed a passive queue."* And the queue
+already existed — `out.txt` on the Mac is append-only and never truncated. What was
+missing was the phone remembering how far it had read. `VoiceMark.swift` stores a byte
+offset per host+user+file; the channel resumes with `tail -c +N`. Nothing runs on the Mac,
+which is what makes it passive.
 
 ## 6 Ship it
 App Store listing, the Haynes/Chilton-style manual covering the tmux upgrade path,

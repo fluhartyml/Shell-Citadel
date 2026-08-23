@@ -81,7 +81,12 @@ because it was the thing he actually wanted.
   app tailed a directory literally named `~`, silently, forever. Fixed, and the
   channel now announces itself so silence cannot be mistaken for breakage.
 
-**Known gap — ✅ HANDLED 2026-08-23, the passive queue.** Backgrounding the app or
+**Known gap — ✅ HANDLED AND VERIFIED BY HIM 2026-08-23, the passive queue.**
+*"I just unlocked my iPhone and saw your anything below this is live"* — built at 08:00,
+installed at 08:15, confirmed at 09:26 by the exact habit it was written for: he locked the
+phone walking in off the porch. **Not a build-green claim; he ran it.**
+
+**Known gap:** Backgrounding the app or
 locking the screen does drop the connection, and iOS suspending a backgrounded app is not
 something the app can argue with. But the connection was never the damage: the voice
 channel opened with `tail -n 0 -F` — *start at the end* — so every reply written while the

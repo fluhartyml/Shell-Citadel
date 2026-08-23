@@ -86,8 +86,7 @@ because it was the thing he actually wanted.
 installed at 08:15, confirmed at 09:26 by the exact habit it was written for: he locked the
 phone walking in off the porch. **Not a build-green claim; he ran it.**
 
-**Known gap:** Backgrounding the app or
-locking the screen does drop the connection, and iOS suspending a backgrounded app is not
+**What the gap was.** Backgrounding the app or locking the screen does drop the connection, and iOS suspending a backgrounded app is not
 something the app can argue with. But the connection was never the damage: the voice
 channel opened with `tail -n 0 -F` — *start at the end* — so every reply written while the
 phone was away was skipped **permanently and silently.**

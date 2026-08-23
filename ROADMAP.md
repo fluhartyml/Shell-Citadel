@@ -86,6 +86,13 @@ because it was the thing he actually wanted.
 installed at 08:15, confirmed at 09:26 by the exact habit it was written for: he locked the
 phone walking in off the porch. **Not a build-green claim; he ran it.**
 
+**✅ PROPERLY EXERCISED 10:21.** The 09:26 run had nothing to catch up on — he unlocked, the app
+reconnected, and the lines arrived live. So the *replay* had never actually run. Second test:
+five NUMBERED lines written into the file while the screen was locked, numbered so a gap would
+be obvious rather than something he had to notice. His report: **"All five showed ant the
+disconnect reconnect dialogue showed."** No line lost, and the new dropped-connection sentence
+appeared in place of `NIOSSH error 1`.
+
 **What the gap was.** Backgrounding the app or locking the screen does drop the connection, and iOS suspending a backgrounded app is not
 something the app can argue with. But the connection was never the damage: the voice
 channel opened with `tail -n 0 -F` — *start at the end* — so every reply written while the

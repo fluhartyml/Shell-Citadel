@@ -165,11 +165,26 @@ actor SSHSession {
 
     // MARK: - Attach mode  —  tmux send-keys
 
-    /// Types a line into the running tmux session, exactly as if it had been typed at
-    /// the keyboard. The MacBook attached to the same session watches it appear.
+    /// Delivers a line into the running tmux session. The MacBook attached to the same
+    /// session watches it appear.
     ///
-    /// `-l` sends the text literally, so tmux does not interpret words like "Enter"
-    /// inside it; the Enter that submits is a separate, deliberate key.
+    /// ⚠️ USES A PASTE BUFFER, NOT `send-keys -l`. This looks like a detail and is not.
+    ///
+    /// `send-keys -l` types the text LITERALLY — one character at a time, at roughly
+    /// three characters a second over SSH. On 2026-08-25 Michael sent a sentence from the
+    /// porch, watched nothing arrive for minutes, and reported: "My terminals looked like
+    /// they got stuck. Hopefully tmux kept everything going in the background." Nothing
+    /// was stuck. It was still typing. He then could not recall what he had written,
+    /// and the half-delivered words had to be read back out of the pane to recover them.
+    ///
+    /// `set-buffer` + `paste-buffer` hands the whole string over in ONE operation —
+    /// measured at 0.065s for 783 characters against roughly four minutes typed. It also
+    /// removes a second failure: every typed character is a chance for the pty buffer to
+    /// fill and block the writer mid-sentence.
+    ///
+    /// The buffer name is deliberately odd so it can never clobber a buffer Michael is
+    /// using himself, and `-d` deletes it the moment it has been pasted. The Enter that
+    /// submits stays a separate, deliberate key.
     func send(_ text: String) async throws {
         guard let client, let destination else { throw SSHSessionError.notConnected }
         _ = client
@@ -195,7 +210,12 @@ actor SSHSession {
         // from the desk; this is the third.
         let stamped = "[\(Self.sentStamp()) SC] \(text)"
         let body = Self.shellQuoted(stamped)
-        _ = try await run("\(tmux) send-keys -t \(session) -l \(body) && \(tmux) send-keys -t \(session) Enter")
+        let buffer = "shell-citadel-msg"
+        _ = try await run("""
+            \(tmux) set-buffer -b \(buffer) -- \(body) \
+              && \(tmux) paste-buffer -d -b \(buffer) -t \(session) \
+              && \(tmux) send-keys -t \(session) Enter
+            """)
     }
 
     // MARK: - Finding tmux

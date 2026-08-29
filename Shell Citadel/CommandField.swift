@@ -47,8 +47,12 @@ struct CommandField: UIViewRepresentable {
         applyTraits(to: field)
         field.returnKeyType = .send
 
-        field.font = .monospacedSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize,
-                                           weight: .regular)
+        // His desktop terminal face, not the system mono — the whole point is that what he
+        // types here looks like what he types in Terminal.app. Falls back to the system
+        // monospaced font if registration ever fails, so the field is never unreadable.
+        let size = UIFont.preferredFont(forTextStyle: .body).pointSize
+        field.font = UIFont(name: TerminalFont.regular, size: size)
+            ?? .monospacedSystemFont(ofSize: size, weight: .regular)
         field.adjustsFontForContentSizeCategory = true
         // The field must never DRIVE the layout's width. A UITextField's intrinsic
         // width grows with its content, and left alone it widened the whole column —

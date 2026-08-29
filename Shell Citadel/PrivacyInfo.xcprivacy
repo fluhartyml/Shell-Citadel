@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Shell Citadel privacy manifest.
+
+	  Apple requires this file even when the answer is "nothing", because silence is
+	  not an answer to them. Ours is the easy case and it is worth saying why in the
+	  file itself: this app has no account, no server of its own, no analytics and no
+	  network destination other than the machine the user typed in themselves.
+
+	  NSPrivacyTracking = false, and NSPrivacyTrackingDomains is deliberately EMPTY.
+	  There is nothing to list. A photograph taken in this app goes over the user's own
+	  SSH connection to the user's own Mac and is never written to the photo library.
+	-->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<!--
+			  UserDefaults. Used for the connection profile and the byte offset the
+			  reply channel resumes from. CA92.1 is the "app's own data, not shared
+			  with anyone" reason, which is exactly what this is.
+			-->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

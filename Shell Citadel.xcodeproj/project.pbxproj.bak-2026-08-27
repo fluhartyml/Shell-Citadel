@@ -385,10 +385,8 @@
 				DEVELOPMENT_TEAM = 3X3F6UJ44H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSBonjourServices = _ssh._tcp;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Shell Citadel uses the camera so you can photograph a screen, a label or a cable and send it straight to your Mac. Photographs are never saved to your photo library and never leave your own connection.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Shell Citadel connects to your own Mac on your network. Nothing leaves your network, and there is no account or server involved.";
+				INFOPLIST_KEY_NSBonjourServices = "_ssh._tcp";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -421,10 +419,8 @@
 				DEVELOPMENT_TEAM = 3X3F6UJ44H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSBonjourServices = _ssh._tcp;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Shell Citadel uses the camera so you can photograph a screen, a label or a cable and send it straight to your Mac. Photographs are never saved to your photo library and never leave your own connection.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Shell Citadel connects to your own Mac on your network. Nothing leaves your network, and there is no account or server involved.";
+				INFOPLIST_KEY_NSBonjourServices = "_ssh._tcp";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

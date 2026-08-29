@@ -1,5 +1,30 @@
 # Shell Citadel — chunks
 
+> # 🛑 BEFORE SUBMITTING: UNITED STATES ONLY
+>
+> **Michael, 2026-08-27:** *"please be extra sure when we submitt to app store connect
+> that we only allow the united states be the only region the app is available."*
+>
+> **In App Store Connect → Pricing and Availability → set availability to the United
+> States and NOTHING else.** The default is every territory Apple sells in. It is a
+> silent default — nothing warns you, and it is chosen for you unless you change it.
+>
+> **WHY IT IS NOT COSMETIC.** This app is an SSH client, so it ships strong encryption.
+> Encryption is export-controlled by the US, and shipping it into other territories
+> raises questions this project has no reason to answer. Selling only inside the US
+> removes the entire class of problem rather than managing it.
+>
+> ✅ **CONFIRMED 2026-08-27 AS HIS GENERAL RULE, not a Shell Citadel exception.**
+> *"for my standing rule, i try to limit my app store connect to the united states only,
+> i may ocasionally forget and include central south america and canada."*
+> The memory that said "Americas only" had written up his occasional slips as intent and
+> has been corrected → `feedback_english_only_americas_only_distribution`.
+> **So this applies to every app of his, and this app has the extra encryption reason
+> on top.**
+>
+> **Re-check this after EVERY submission.** Adding a new version does not reset it, but
+> an accidental "add all territories" click is one tap wide and there is no confirmation.
+
 Michael, 2026-08-22: *"im loosing interest in this project — but — in order for me to
 keep interest i want to chunk it into managable pieces."*
 
@@ -147,6 +172,37 @@ App Store listing, the Haynes/Chilton-style manual covering the tmux upgrade pat
 and the privacy story — no internet, no account, no server, which most remote-access
 apps cannot say.
 
+### 📋 Submission checklist — the things that are easy to miss
+
+- [ ] 🛑 **Availability: UNITED STATES ONLY.** See the banner at the top of this file.
+      Apple's default is every territory. Verify it after every submission.
+- [x] **Export compliance declared in the app** (`ITSAppUsesNonExemptEncryption = NO`).
+      Without it App Store Connect asks by hand on EVERY upload, and a wrong answer on a
+      tired evening is a compliance problem rather than a rejection. Added 2026-08-27.
+- [x] **Privacy manifest** (`PrivacyInfo.xcprivacy`). Required by Apple. Ours is the
+      easy case — collects nothing, no tracking, no account — but "nothing" still has to
+      be declared. Added 2026-08-27.
+- [x] **Camera usage string**, verified present in the BUILT Info.plist, not just the
+      project file. Added 2026-08-27.
+- [ ] ⚠️ **Reviewers have no Mac to connect to.** A reviewer opens the app, sees a login
+      form, cannot connect, and can reject it as non-functional. This is a known way SSH
+      clients get turned down. Decide BEFORE submitting: detailed review notes, or a
+      demonstration mode that shows the interface without a host.
+- [ ] ⚠️ **Archive must use the Release configuration — VERIFY, do not assume.**
+      Product → Scheme → Edit Scheme → Archive → Build Configuration = **Release**, and
+      tick **Shared** while there. There is currently NO `.xcscheme` file in the project,
+      so Xcode auto-generates it and the setting lives only in per-user data: invisible to
+      version control, unverifiable from disk, and changeable by one stray click with
+      nothing to show it happened. Sharing it makes the scheme a real file that can be
+      diffed and checked.
+      **Why it matters here specifically:** everything inside `#if DEBUG` — the signal
+      light simulator — is compiled out of Release and only Release. If Archive ever built
+      Debug, debug controls would ship. That is the Tally Matrix Clock near-rejection,
+      2026-08-27: *"the debug info looked industrial and cool so i thought it would be a
+      cool easteregg but app store connect didnt agree."*
+- [ ] **Screenshots** at 1242×2688 → `reference_app_store_screenshot_sizes`.
+- [ ] **English only** → `feedback_english_only_americas_only_distribution`.
+
 ---
 
 **Not in any chunk, deliberately:** interactive programs (vim, top, less) need a PTY,
@@ -244,3 +300,119 @@ renewed 2026-08-19, so the credential side is available.
 **⚠️ Push requires a real network path to Apple.** Everything built so far works with no internet
 at all, on the LAN. This is the first feature that would not. **That is a genuine departure from
 the app's founding property and he should decide it deliberately, not inherit it.**
+
+---
+
+## 📍 LOCATION PIN DROP + MAP SNAPSHOT — his idea, 2026-08-28 07:25
+> *"I want to add when i get back after my morning routine i would like to add a location pin drop
+> with a small map snapshot in shell citadel"*
+
+**Captured, not started — he said "when i get back."** Filed here rather than left in the
+idea-capture log, because a bedtime or morning idea that stays only in the log is no better off
+than one he never typed.
+
+**Why it fits the app he is already building.** 2.5 established the shape: **the phone captures
+something and it lands in the chat thread so Claude can process it.** A pin drop is the same
+gesture with a different sensor — camera → photo, GPS → place. His framing for 2.5 was
+*"i want the image or scan to land in the chat thread so it gets sent to you for processing,"* and
+a location behaves identically.
+
+**Two halves, and they are separable:**
+1. **The pin** — the coordinate itself, which is what Claude can actually act on (Home Assistant
+   geofencing, "how far am I from home", filing a photo by where it was taken).
+2. **The map snapshot** — a small rendered image for HIM, so the message is readable at a glance
+   rather than a pair of numbers. `MKMapSnapshotter` renders one without presenting a map view.
+
+**Open questions — HIS, not to be pre-decided:**
+- **What triggers it?** A `+` menu item beside the camera button he already asked for, or automatic
+  on every message? **Automatic is a surveillance-shaped default and should not be assumed.**
+- **Coarse or precise?** iOS offers both; coarse is enough for "which town", precise is needed for
+  "which building."
+- **Does the snapshot go in the thread, or only the coordinate?** An image costs tokens every time
+  it is re-read in context; a coordinate costs almost nothing. **This is the same lesson as the
+  screen-reading cost measured 2026-08-27** — images are cheap once and expensive forever after.
+
+**⚠️ Privacy — flag before building, do not inherit it.** `NSLocationWhenInUseUsageDescription` is
+required, App Store review reads it, and location is the most scrutinised permission there is.
+It also touches his existing rule: **store location in the data model, never write it into photo
+EXIF** — iOS's own camera setting stays the single authority.
+→ [[feedback_photo_location_privacy]]
+
+**Distribution constraint unchanged:** United States only. → the submission checklist above.
+
+### 📌 REFINED 2026-08-28 07:29 — two features, not one
+> *"since you suggested i want a map pin snapshot in the plus to drop a location pin and i would
+> like an undisclosed gps location stamp imbeded in every message sent from human to claude in
+> citadel"*
+
+**A. THE PIN DROP — explicit, in the `+` menu.** A deliberate act: he taps, it drops a pin, the
+snapshot goes in the thread. Fresh GPS fix is appropriate here because he asked for it by tapping.
+
+**B. THE SILENT STAMP — every human→Claude message carries a coordinate.** Not rendered in the
+bubble; it rides along as metadata for Claude to use.
+
+**Why B is genuinely useful and not just data for its own sake:** it answers *where he was* when he
+said something. A bedtime idea from the porch, a photo filed by the place it was taken, "how far am
+I from home", a Home Assistant action that depends on whether he is in the house. The idea-capture
+log already timestamps every message he types; **this is the same log gaining a second axis.**
+
+**⚙️ RECOMMENDATION — use the LAST KNOWN location, not a fresh fix per message.**
+`CLLocationManager.location` returns the cached last fix instantly, costs no battery, and is
+accurate enough for "which place". A fresh fix per message would spin the GPS radio on every line
+he types — and **battery is already a stated constraint of his** (see the Battery section above).
+**Fresh fix belongs to A, the explicit pin, where he has asked for precision by tapping.**
+A coordinate is also nearly free in tokens, unlike a snapshot image.
+
+**⚠️ ONE THING THAT MUST NOT BE INHERITED SILENTLY — "undisclosed" and the App Store.**
+Inside his own build, sending his own location from his own phone to his own Mac, with no third
+party and no server, this is unremarkable — **it is his data about himself.**
+**But "undisclosed" cannot survive App Store review.** A privacy nutrition label and
+`NSLocationWhenInUseUsageDescription` are mandatory, and location collection must be declared **even
+when it is invisible in the UI.** Undeclared background location is one of the most reliably caught
+rejections there is. **Personal build: fine as described. Shipped build: the collection is declared
+in the label, and only the on-screen DISPLAY stays silent.** Those are compatible — "undisclosed"
+can mean "not shown in the bubble" without meaning "not declared to Apple."
+**His call; flagged so it is a decision and not an accident.** → [[feedback_photo_location_privacy]]
+(same rule still holds: location lives in the data model, never written into photo EXIF).
+
+#### ✅ DECIDED 2026-08-28 07:40 — accuracy per feature
+> *"For the pin drop i want precise location and for the chat thread i want general"*
+
+| Feature | Accuracy | Source |
+|---|---|---|
+| **A · Pin drop** (`+` menu, deliberate) | **precise** | fresh fix, `kCLLocationAccuracyBest` |
+| **B · Message stamp** (every human→Claude line) | **general** | cached last-known, **rounded before it is stored** |
+
+**How "general" is produced — round it, do not geocode it.** Truncate to **2 decimal places**:
+
+| Precision | Ground distance | Answers |
+|---|---|---|
+| 0.1° | ~11 km | which town |
+| **0.01°** | **~1.1 km** | **which neighbourhood ← this one** |
+| 0.001° | ~110 m | which building |
+
+**Why rounding and not `CLGeocoder`.** A reverse-geocoded place name reads beautifully — "Surfside
+Beach, TX" — and **requires a network call.** This app's founding property is that everything built
+so far works **with no internet at all, on the LAN.** Rounding is offline, instant, and free.
+**Do not spend the app's best property on a nicety.**
+
+**Round at the source, by default** — the stamp is stored rounded rather than stored precise and
+merely displayed rounded. That is what he asked for and it keeps the data matching the intent.
+
+**But this is a design choice, NOT a containment requirement — his ruling, 2026-08-28 07:44:**
+> *"Digests and threads have top secret clearance so they can see precise accuracy if it happens on
+> mistake or by design"*
+
+**He is right and the earlier warning here was over-cautious.** The raw threads are already
+`<#TopSecret>` in full and already hold his medical history, his accident and family detail; a
+coordinate is far less sensitive than what is in there today. **The classification system he built
+IS the control.** So a precise value landing in a thread — by accident or on purpose — is **not an
+incident** and needs no special handling. **Do not re-litigate containment feature by feature when
+the classification already covers it.**
+
+**On the authorization, since iOS makes accuracy an app-level setting rather than a per-call one:**
+the simple path is full-accuracy authorization with the stamp deliberately rounded in code, which
+guarantees the pin drop works. The stricter path is to request **reduced** accuracy by default and
+call `requestTemporaryFullAccuracyAuthorization(withPurposeKey:)` only for the pin — the app then
+genuinely does not hold precision the rest of the time. **The stricter path matches what he asked
+for more literally; the simple path is fewer moving parts. Not decided — his call at build time.**

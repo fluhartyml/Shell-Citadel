@@ -41,7 +41,9 @@ struct TerminalTabsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if tabs.count > 1 { tabBar }
+            // Always visible: the + lives in this bar, so hiding it until a second tab
+            // exists made the second tab impossible to create.
+            tabBar
 
             ZStack {
                 ForEach(tabs) { tab in

@@ -14,7 +14,21 @@ import SwiftUI
 struct SettingsView: View {
     @Binding var profile: ConnectionProfile
     @Binding var password: String
+
+    /// Supplied when this form is editing a SAVED connection from the library, where
+    /// committing has to be a deliberate act with a way to back out. Left nil when the
+    /// form edits a tab's own live profile, which is bound directly and needs only "Done".
+    var onSave: (() -> Void)? = nil
+    var onCancel: (() -> Void)? = nil
+
     @Environment(\.dismiss) private var dismiss
+
+    /// SSH user names cannot contain a space. Michael's saved Mac held his macOS *full*
+    /// name — "Michael Fluharty" — instead of his short name, and the only symptom was a
+    /// connection that never worked. A field that can be silently wrong deserves to say so.
+    private var usernameLooksWrong: Bool {
+        profile.username.contains(where: \.isWhitespace)
+    }
 
     var body: some View {
         NavigationStack {
@@ -58,6 +72,14 @@ struct SettingsView: View {
                         SecureField("required", text: $password)
                             .multilineTextAlignment(.trailing)
                             .textContentType(.password)
+                    }
+                    if usernameLooksWrong {
+                        Label(
+                            "A user name cannot contain a space. This looks like your full name — SSH wants your short account name, the one your home folder is named after.",
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
                     }
                 } header: {
                     Text("Sign in")
@@ -117,9 +139,19 @@ struct SettingsView: View {
             .navigationTitle("Connection")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if let onCancel {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel", role: .cancel, action: onCancel)
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .disabled(!profile.isComplete)
+                    if let onSave {
+                        Button("Save", action: onSave)
+                            .disabled(!profile.isComplete)
+                    } else {
+                        Button("Done") { dismiss() }
+                            .disabled(!profile.isComplete)
+                    }
                 }
             }
         }

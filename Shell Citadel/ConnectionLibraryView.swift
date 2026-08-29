@@ -134,18 +134,39 @@ struct ConnectionLibraryView: View {
 
 /// Add or change one saved connection. Wraps the existing form so the fields, the
 /// Advanced disclosure and the mode picker all stay exactly as they were.
+///
+/// **Saving is an explicit act.** This used to commit on `onDisappear`, which had two
+/// problems: SwiftUI does not promise to run it on every dismissal path, and there was no
+/// way to back out of an edit — every keystroke was already a decision. Now Save writes and
+/// Cancel discards, which is also what makes it safe to type a wrong host and change your
+/// mind. Michael, 2026-08-29: *"i need to be able to edit connection credentials after
+/// connection save."*
 private struct ConnectionEditor: View {
     @State var profile: ConnectionProfile
     @State private var password = ""
+    @State private var loaded = false
     @StateObject private var library = ConnectionLibrary.shared
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        SettingsView(profile: $profile, password: $password)
-            .onAppear { password = CredentialStore.password(for: profile) ?? "" }
-            .onDisappear {
+        SettingsView(
+            profile: $profile,
+            password: $password,
+            onSave: {
                 library.update(profile)
-                if !password.isEmpty { _ = CredentialStore.save(password: password, for: profile) }
-            }
+                // Always write, even when blank — an empty field now means "forget this
+                // password", which was previously impossible.
+                _ = CredentialStore.save(password: password, for: profile)
+                dismiss()
+            },
+            onCancel: { dismiss() }
+        )
+        .onAppear {
+            // Guard the load: onAppear can run again when the sheet returns to front,
+            // and a second run would overwrite what the user has typed.
+            guard !loaded else { return }
+            password = CredentialStore.password(for: profile) ?? ""
+            loaded = true
+        }
     }
 }

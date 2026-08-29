@@ -37,9 +37,9 @@ struct SettingsView: View {
                             .keyboardType(.numberPad)
                     }
                 } header: {
-                    Text("The Mac")
+                    Text("The machine")
                 } footer: {
-                    Text("A name on your network, a Tailscale address, or an IP — SSH treats them the same, so nothing changes when you leave the house.")
+                    Text("A Mac, a Raspberry Pi, a server — anything running SSH. A name on your network, a Tailscale address, or an IP all work the same, so nothing changes when you leave the house.")
                 }
 
                 Section {
@@ -62,7 +62,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Sign in")
                 } footer: {
-                    Text("Tap the password field to fill it from Passwords. It is kept in this device's Keychain — never in iCloud, never in a backup. Turn on Remote Login on the Mac, in System Settings → General → Sharing.")
+                    Text("Tap the password field to fill it from Passwords. It is kept in this device's Keychain — never in iCloud, never in a backup. On a Mac, turn on Remote Login in System Settings → General → Sharing; on a Pi, make sure the SSH service is enabled.")
                 }
 
                 Section {
@@ -108,9 +108,11 @@ struct SettingsView: View {
                     } header: {
                     Text("Advanced")
                 } footer: {
-                        Text("Run `tmux ls` on the Mac to see session names. The spoken-text file is whatever writes plain sentences there — an interactive session redraws its screen constantly, so it cannot be read aloud directly.")
+                        Text("Run `tmux ls` on that machine to see session names. The spoken-text file is whatever writes plain sentences there — an interactive session redraws its screen constantly, so it cannot be read aloud directly.")
                     }
                 }
+
+                AppearanceSettingsView()
             }
             .navigationTitle("Connection")
             .navigationBarTitleDisplayMode(.inline)

@@ -43,15 +43,21 @@ enum ConnectionMode: String, Codable, CaseIterable, Sendable {
     var explanation: String {
         switch self {
         case .direct:
-            "Runs a command and reads the answer back. Turn on Remote Login on the Mac and that is the whole setup."
+            "Runs a command and reads the answer back. Enable SSH on the machine and that is the whole setup."
         case .attach:
-            "Types into a session that is already running, so work survives losing the connection. Needs tmux on the Mac."
+            "Types into a session that is already running, so work survives losing the connection. Needs tmux on that machine."
         }
     }
 }
 
 /// Everything the user can set. Deliberately NOT the password — see `CredentialStore`.
-struct ConnectionProfile: Codable, Equatable, Sendable {
+struct ConnectionProfile: Codable, Equatable, Sendable, Identifiable {
+    /// Stable identity, so the library can hold several and a tab can say which one it
+    /// is running. Defensively decoded like everything else here: a profile saved before
+    /// the library existed simply gets a fresh id rather than failing to decode and
+    /// silently wiping his settings.
+    var id: UUID = UUID()
+
     var name: String = "My Mac"
 
     /// A hostname, a Tailscale name, a .local name, or an IP. The app does not care
@@ -97,6 +103,7 @@ struct ConnectionProfile: Codable, Equatable, Sendable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? "My Mac"
         host = try c.decodeIfPresent(String.self, forKey: .host) ?? ""
         port = try c.decodeIfPresent(Int.self, forKey: .port) ?? 22

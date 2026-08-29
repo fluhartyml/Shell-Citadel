@@ -38,9 +38,31 @@ struct TerminalView: View {
     /// Shown in the composer so it is always obvious where a command will run —
     /// the one piece of state a fresh-shell-per-command design would otherwise hide.
     @State private var workingDirectory = ""
+    /// A connection chosen from the library while this tab is still live. Holding it here
+    /// rather than applying it is what makes the challenge possible.
+    @State private var pendingConnection: ConnectionProfile?
+    /// A connection being filled in right now — typically the host he just typed, which
+    /// needs only a password before it can go.
+    @State private var editingProfile: ConnectionProfile?
+    /// Who and where the FAR END says it is — not what he typed. See connect().
+    @State private var remoteUser = ""
+    /// The dumb terminal. Direct mode runs on this, not on the exec-per-command path.
+    @StateObject private var pty = PTYSession()
+    @State private var remoteHost = ""
 
-    @AppStorage("connectionProfile") private var storedProfile = Data()
+    // ── ONE STORED PROFILE PER TAB. Michael, 2026-08-29: "we may need to add tab
+    // abilities to citadel so i can have multiple terminals open" — because with a single
+    // profile it was Claude OR the Pi, never both, and pointing it at one wiped the other.
+    //
+    // The key is injected rather than hard-coded so each tab persists its own host,
+    // username and mode. The default keeps the pre-tabs key, so an existing install opens
+    // its first tab already configured instead of forgetting his Mac.
+    @AppStorage private var storedProfile: Data
     @Environment(\.scenePhase) private var scenePhase
+
+    init(profileKey: String = "connectionProfile") {
+        _storedProfile = AppStorage(wrappedValue: Data(), profileKey)
+    }
 
     var body: some View {
         NavigationStack {
@@ -56,9 +78,18 @@ struct TerminalView: View {
                         .background(.orange.opacity(0.9))
                         .foregroundStyle(.black)
                 }
-                transcript
-                Divider()
-                composer
+                // A DUMB TERMINAL, WHEN THAT IS WHAT THIS IS. Direct mode on a live
+                // connection hands the whole screen to the PTY — his shell, his prompt,
+                // his output, no rows composed by us. Everything else keeps the
+                // conversation view, which is right for attach mode and for the
+                // not-yet-connected state where he is typing a destination.
+                if connected && !isDemo && profile.mode == .direct {
+                    DumbTerminalView(pty: pty)
+                } else {
+                    transcript
+                    Divider()
+                    composer
+                }
             }
             .navigationTitle(profile.name.isEmpty ? "Shell Citadel" : profile.name)
             .navigationBarTitleDisplayMode(.inline)
@@ -80,10 +111,51 @@ struct TerminalView: View {
                     pickedFromLibrary = nil
                 }
             }
-            .sheet(isPresented: $showingSettings, onDismiss: persistProfile) {
-                SettingsView(profile: $profile, password: $password)
+            .sheet(item: $editingProfile) { pending in
+                PasswordFirstEditor(profile: pending) { finished, secret in
+                    profile = finished
+                    password = secret
+                    persistProfile()
+                    if finished.isComplete && !secret.isEmpty { connect() }
+                }
             }
-            .task { restoreProfile() }
+            .sheet(isPresented: $showingSettings, onDismiss: persistProfile) {
+                // THE SLIDERS ICON OPENS THE SHARED LIBRARY, NOT THIS TAB'S FORM.
+                // Michael, 2026-08-29: "each connection had a button that made the chosen
+                // connection live in the open or focused tab."
+                ConnectionLibraryView(current: profile, isLive: connected) { chosen in
+                    if connected {
+                        // HIS RULING: "prompts a challenge before dropping the previous
+                        // open connection." Never drop a live session silently.
+                        pendingConnection = chosen
+                    } else {
+                        adopt(chosen)
+                    }
+                }
+            }
+            .task {
+                restoreProfile()
+                // One-time lift so an existing install finds his Mac already in the
+                // library instead of an empty list and a setup he has to retype.
+                ConnectionLibrary.shared.adoptIfEmpty(profile)
+            }
+            // HIS RULING, 2026-08-29: "prompts a challenge before dropping the previous
+            // open connection." A live session is work in progress; swapping it out from
+            // under him without asking is the same shape as every other silent failure.
+            .confirmationDialog(
+                pendingConnection.map { "Switch this tab to “\($0.name)”?" } ?? "",
+                isPresented: Binding(get: { pendingConnection != nil },
+                                     set: { if !$0 { pendingConnection = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Disconnect and switch", role: .destructive) {
+                    if let chosen = pendingConnection { adopt(chosen) }
+                    pendingConnection = nil
+                }
+                Button("Stay connected", role: .cancel) { pendingConnection = nil }
+            } message: {
+                Text("This tab is connected to \(profile.name.isEmpty ? profile.host : profile.name). Switching closes that session. Other tabs are unaffected.")
+            }
             .onChange(of: scenePhase) { _, phase in
                 // iOS suspends a backgrounded app within seconds, so the SSH connection
                 // does not survive a trip to another app or a locked screen. The tmux
@@ -107,6 +179,24 @@ struct TerminalView: View {
                 Image(systemName: "slider.horizontal.3")
             }
             .accessibilityLabel("Connection settings")
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            // THE WAY IN, WITH NO CONFIGURATION — moved here from the input row on
+            // 2026-08-29. A reviewer opens the app cold and must still find this without
+            // a hostname, a username or a Mac of their own. The toolbar is visible on
+            // launch, so it keeps doing its job; the input row is now only for typing.
+            HStack(spacing: 12) {
+                if isDemo {
+                    Button("End", action: endDemo)
+                } else {
+                    if profile.isComplete && !connected {
+                        Button("Connect", action: connect)
+                            .disabled(password.isEmpty || isBusy)
+                    }
+                    Button("Demo", action: startDemo)
+                }
+            }
+            .font(.callout)
         }
         ToolbarItem(placement: .principal) {
             // The prompt is a connection state, not a `$`. A terminal that is only a
@@ -161,10 +251,13 @@ struct TerminalView: View {
                             Text(line.text)
                                 .textSelection(.enabled)
                                 .foregroundStyle(line.source == .system ? .secondary : .primary)
-                                // Output keeps its columns; prose gets to be readable.
-                                .font(line.isOutput
-                                      ? TerminalFont.mono(.callout)
-                                      : .system(.callout))
+                                // ALL ONE FACE. Michael, 2026-08-29, holding the app up
+                                // beside his Mac terminal: "the font is different." He is
+                                // right — mixing a proportional face into a terminal
+                                // transcript is the tell that it is a chat window wearing
+                                // terminal clothes. A terminal is monospaced throughout,
+                                // including its own notices.
+                                .font(TerminalFont.mono(.callout))
                             Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -237,7 +330,9 @@ struct TerminalView: View {
             // into an em dash corrupts commands. See CommandField.
             CommandField(text: $draft,
                          placeholder: isDemo ? "Simulated — not connected"
-                                    : (connected ? "Say something" : "ssh user@host"),
+                                    : (connected
+                                       ? (profile.mode == .attach ? "Say something" : "Type a command")
+                                       : "ssh user@host"),
                          // NOT disabled while busy: disabling a UITextField makes iOS
                          // resign first responder, which drops the keyboard after every
                          // single command and never brings it back. Michael hit this the
@@ -250,32 +345,32 @@ struct TerminalView: View {
                          // routes an ssh line to `connectFromSSHLine` so the arrow does
                          // something real instead of merely appearing.
                          isEnabled: true,
-                         strict: profile.mode == .direct,
+                         // STRICT WHENEVER NOT CONNECTED. Michael typed
+                         // `fluhartyml@pihole.local` and iOS handed it back as
+                         // `Fluhartyml@pihole.local`; SSH usernames are case-sensitive, so
+                         // that fails auth with the right password. While disconnected he
+                         // is typing a DESTINATION, which is shell-shaped input no matter
+                         // what mode the profile happens to carry.
+                         strict: !connected || profile.mode == .direct,
                          onSubmit: send)
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)
 
             if isBusy {
                 ProgressView()
-            } else if connected || isDemo || !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                // The arrow appears as soon as there is something to send, connected or
-                // not — in dumb-terminal mode what it sends is the ssh line itself.
+            } else {
+                // THE INPUT ROW IS THE SEND ARROW AND NOTHING ELSE. Michael, 2026-08-29:
+                // "the connect demo is not good im a dumb terminal" — Connect and Demo were
+                // occupying the place his text goes, in a mode whose whole promise is that
+                // you type a destination and press send. They now live in the toolbar,
+                // where Demo is still findable cold by a reviewer with no Mac.
                 Button(action: send) {
                     Image(systemName: "arrow.up.circle.fill").font(.title2)
                 }
                 .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .accessibilityLabel("Send")
-            } else if isDemo {
-                Button("End", action: endDemo)
-            } else {
-                Button("Connect", action: connect)
-                    .disabled(!profile.isComplete || password.isEmpty || isBusy)
-                // THE WAY IN, WITH NO CONFIGURATION. A reviewer opens the app cold and
-                // must be able to find this without a hostname, a username or a Mac.
-                // If it is ever hidden behind Settings, it has stopped doing its job.
-                Button("Demo", action: startDemo)
-                    .font(.caption)
             }
+
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
@@ -286,11 +381,28 @@ struct TerminalView: View {
                       matching: .images)
     }
 
-    /// The last path component, so a deep path does not eat the composer.
+    /// A real shell prompt: who you are, where you are connected, and where you are
+    /// standing. Michael, 2026-08-29: "it should show the current connection and current
+    /// path at that prompt just like on a terminal."
+    ///
+    /// The path is abbreviated to its last component, and the home directory shows as `~`,
+    /// because a full path on a phone eats the whole composer — which is the same reason
+    /// every real shell does exactly this.
     private var promptLabel: String {
-        guard connected, !workingDirectory.isEmpty else { return ">" }
-        let name = (workingDirectory as NSString).lastPathComponent
-        return "\(name) >"
+        guard connected else { return ">" }
+        let who = remoteUser.isEmpty ? profile.username : remoteUser
+        let where_ = remoteHost.isEmpty ? profile.host : remoteHost
+        let path: String
+        if workingDirectory.isEmpty {
+            path = "~"
+        } else if workingDirectory == "/Users/\(who)"
+                    || workingDirectory == "/home/\(who)" {
+            path = "~"
+        } else {
+            path = (workingDirectory as NSString).lastPathComponent
+        }
+        if who.isEmpty || where_.isEmpty { return "\(path) >" }
+        return "\(who)@\(where_):\(path) $"
     }
 
     // MARK: - Actions
@@ -308,12 +420,69 @@ struct TerminalView: View {
                 link.start(pinging: session)
                 append(.system, "Connected to \(profile.host) as \(profile.username).")
 
+                // A CONNECTION THAT WORKED IS WORTH KEEPING. Michael, 2026-08-29: "if i
+                // successfully make a connection it should auto save to the connections
+                // list." Saving only on success is the point — an untested host typed
+                // from memory would otherwise clutter the library with things that do not
+                // work. Proof first, then persistence.
+                let library = ConnectionLibrary.shared
+                if !library.connections.contains(where: {
+                    $0.host.caseInsensitiveCompare(profile.host) == .orderedSame
+                    && $0.username == profile.username
+                    && $0.port == profile.port
+                }) {
+                    var saved = profile
+                    if saved.name.trimmingCharacters(in: .whitespaces).isEmpty
+                        || saved.name == "My Mac" {
+                        saved.name = profile.host
+                    }
+                    library.add(saved)
+                    append(.system, "Saved “\(saved.name)” to your connections.")
+                }
+
                 if await session.trustedOnFirstUse {
                     // Said out loud rather than passed over: the first connection to a
                     // host is the one moment this app cannot verify anything.
                     append(.system, "First time connecting to this machine — its key has been remembered. If it ever changes, the connection will be refused.")
                 }
-                if profile.mode == .attach { startVoiceChannel() }
+                // SHOW WHAT A FRESH TERMINAL SHOWS. Michael, 2026-08-29, holding up a
+                // new Terminal window beside the app: "that shows a new terminal window
+                // that should show in the shell citadel."
+                //
+                // An SSH exec channel gets no message-of-the-day, because that is printed
+                // by an interactive LOGIN shell and this is not one. So ask for it
+                // explicitly rather than inventing a greeting — a fabricated "Last login"
+                // line would be a small lie about a real machine, and the whole point is
+                // that this is his actual Pi talking.
+                // ASK THE MACHINE WHO AND WHERE IT IS. Michael, 2026-08-29: "i want it
+                // to echo the current connection, i dont want to show my interpretation."
+                //
+                // The prompt used to be assembled from the profile — from what HE TYPED.
+                // That is my rendering of his input, not the host's own answer, and the
+                // two can differ: he typed `pihole.local`, the machine calls itself
+                // `pihole`. So the prompt now comes from whoami/hostname on the far end.
+                if let who = try? await session.run("whoami"),
+                   let where_ = try? await session.run("hostname -s 2>/dev/null || hostname") {
+                    remoteUser = who.trimmingCharacters(in: .whitespacesAndNewlines)
+                    remoteHost = where_.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                // The machine's own message of the day, printed verbatim. An SSH exec
+                // channel gets none by itself, because that belongs to an interactive
+                // login shell — so ask for it rather than inventing a greeting.
+                if let motd = try? await session.run("cat /etc/motd 2>/dev/null"),
+                   !motd.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    append(.system, motd.trimmingCharacters(in: .newlines), isOutput: true)
+                }
+
+                if profile.mode == .attach {
+                    startVoiceChannel()
+                } else if let live = session.authenticatedClient {
+                    // DIRECT MODE IS NOW A REAL TERMINAL. Same authenticated connection,
+                    // so he is not asked for the password twice.
+                    pty.start(client: live,
+                              cols: TerminalAppearance.shared.cols,
+                              rows: TerminalAppearance.shared.rows)
+                }
             } catch {
                 append(.system, Diagnosis.sentence(for: error, while: .connecting))
             }
@@ -530,12 +699,16 @@ struct TerminalView: View {
     /// for this host it is used; otherwise the Connection settings sheet opens with the
     /// host and username already filled, so the only thing left to enter is the secret.
     private func connectFromSSHLine(_ line: String) {
+        // ACCEPT A BARE user@host TOO. Michael, 2026-08-29: "what if i type
+        // fluhartyml@pihole in the text line?" — he would, and demanding the `ssh` prefix
+        // to accept something that is unambiguously a destination is pedantry, not rigour.
         var parts = line.split(separator: " ").map(String.init)
-        guard parts.first == "ssh" else {
-            append(.system, "Not connected. Type `ssh user@host` to connect, or use the sliders to pick a saved server.")
+        if parts.first == "ssh" {
+            parts.removeFirst()
+        } else if !(parts.first ?? "").contains("@") {
+            append(.system, "Not connected. Type `user@host` — or `ssh user@host` — to connect, or use the sliders to pick a saved connection.")
             return
         }
-        parts.removeFirst()
 
         var port = 22
         if let i = parts.firstIndex(of: "-p"), i + 1 < parts.count, let p = Int(parts[i + 1]) {
@@ -571,8 +744,12 @@ struct TerminalView: View {
             password = saved
             connect()
         } else {
-            append(.system, "Password needed for \(user)@\(host) — opening settings.")
-            showingSettings = true
+            // OPEN AN EDITOR FOR THE HOST HE JUST TYPED — not the library.
+            // Michael, 2026-08-29: "It didnt give me a chance to type it." Sending him to
+            // an empty Connections list when he had just named a machine was a dead end:
+            // the one field he needed was nowhere on screen.
+            append(.system, "Password needed for \(user)@\(host).")
+            editingProfile = next
         }
     }
 
@@ -589,6 +766,34 @@ struct TerminalView: View {
     //
     // The profile is not secret and lives in UserDefaults. The password never does —
     // it goes to the Keychain via CredentialStore.
+
+    /// Make a library connection live in THIS tab. Ends the current session first —
+    /// deliberately explicit rather than relying on the old session being garbage
+    /// collected, because a half-open SSH channel is exactly the kind of thing that looks
+    /// fine until it does not.
+    private func adopt(_ chosen: ConnectionProfile) {
+        if connected {
+            Task { await session.close() }
+            connected = false
+            link.stop()
+            pty.stop()
+            remoteUser = ""
+            remoteHost = ""
+        }
+        profile = chosen
+        password = CredentialStore.password(for: chosen) ?? ""
+        workingDirectory = ""
+        persistProfile()
+        // "a button that made the chosen connection LIVE in the open or focused tab" —
+        // live means connected, so go, when there is a password to go with.
+        if profile.isComplete && !password.isEmpty {
+            connect()
+        } else {
+            append(.system, profile.isComplete
+                   ? "Ready. \(profile.name) needs a password — open the sliders."
+                   : "Dumb terminal mode — please use sliders to configure first.")
+        }
+    }
 
     private func restoreProfile() {
         if let decoded = try? JSONDecoder().decode(ConnectionProfile.self, from: storedProfile) {

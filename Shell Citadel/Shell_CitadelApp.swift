@@ -11,11 +11,15 @@ import SwiftUI
 struct Shell_CitadelApp: App {
     // His desktop terminal font, bundled. Registered before the first view renders so no
     // frame is ever drawn in the system fallback. See TerminalFont.
-    init() { TerminalFont.register() }
+    init() {
+        TerminalFont.register()
+        // First launch after a defaults change adopts them; his own choices are kept.
+        Task { @MainActor in TerminalAppearance.shared.applySeedIfOutdated() }
+    }
 
     var body: some Scene {
         WindowGroup {
-            TerminalView()
+            TerminalTabsView()
         }
     }
 }

@@ -70,6 +70,10 @@ actor SSHSession {
     /// so the UI can say so instead of letting a blind first trust pass silently.
     var trustedOnFirstUse: Bool { trust?.didTrustOnFirstUse ?? false }
 
+    /// The live client, so a dumb terminal can open a PTY on the SAME authenticated
+    /// connection rather than asking him for the password a second time.
+    var authenticatedClient: SSHClient? { client }
+
     // MARK: - Connect
 
     func connect(to destination: SSHDestination, password: String) async throws {
@@ -230,6 +234,62 @@ actor SSHSession {
     ///
     /// Resolved once per connection and cached. If tmux genuinely is not installed,
     /// that is a sentence the user can act on, not an error code.
+    // MARK: - Sending a picture
+
+    /// Where photographs land on the Mac. NOT inside the apartment repo — a photograph
+    /// of a medical document or of the inside of his house must not become a commit by
+    /// accident. Michael's own classification scheme treats anything untagged as
+    /// TopSecret, and this folder inherits that.
+    static let inboxFolderName = "Claude Inbox"
+
+    /// Push bytes to the Mac over the connection that is ALREADY OPEN.
+    ///
+    /// WHY NOT A SECOND APP.  The obvious design is a Mac companion that receives files
+    /// and hands them on. It has no job. The thing on the other end is Claude reading the
+    /// Mac's filesystem directly, so the entire requirement is "get the bytes onto the
+    /// disk and say where they are". A companion app would add a second target to sign, a
+    /// process that has to be running, and a new way for a photograph to silently vanish.
+    ///
+    /// WHY THE HOME DIRECTORY IS ASKED FOR RATHER THAN ASSUMED.  SFTP does not expand
+    /// `~` — it is a protocol, not a shell, and a path beginning with a tilde is simply a
+    /// directory called "~". The exec channel DOES expand it, so the shell is asked once
+    /// for the real path and everything after that is absolute.
+    ///
+    /// - Returns: the absolute path on the Mac, ready to be quoted into a message.
+    func upload(_ data: Data, filename: String) async throws -> String {
+        guard let client else { throw SSHSessionError.notConnected }
+
+        let home = try await run("printf %s \"$HOME\"")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !home.isEmpty else { throw SSHSessionError.notConnected }
+
+        let directory = "\(home)/\(Self.inboxFolderName)"
+        // `mkdir -p` over the exec channel rather than SFTP's createDirectory, because
+        // mkdir is idempotent and createDirectory throws when the folder already exists —
+        // which it will, every time after the first.
+        _ = try await run("mkdir -p \(Self.shellQuoted(directory))")
+
+        let remotePath = "\(directory)/\(filename)"
+
+        let sftp = try await client.openSFTP()
+        do {
+            var buffer = ByteBufferAllocator().buffer(capacity: data.count)
+            buffer.writeBytes(data)
+            try await sftp.withFile(filePath: remotePath,
+                                    flags: [.create, .write, .truncate]) { file in
+                try await file.write(buffer)
+            }
+            try await sftp.close()
+        } catch {
+            // Close even on failure. An SFTP channel left open survives as long as the
+            // connection does, and the connection is meant to last all day.
+            try? await sftp.close()
+            throw error
+        }
+
+        return remotePath
+    }
+
     private func tmuxExecutable() async throws -> String {
         if let cachedTmuxPath { return cachedTmuxPath }
 

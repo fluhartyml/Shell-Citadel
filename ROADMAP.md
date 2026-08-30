@@ -416,9 +416,29 @@ The system asks once, grants precision for that stated purpose, and returns to r
 - **Honesty** — the purpose key is user-visible text explaining *why* precision is needed at that
   moment, and "drop a pin on the map" is an easy sentence to write truthfully.
 
-**Both open questions are now closed. Remaining before building: the `NSLocationWhenInUseUsage`
-description string, the purpose key text, and whether the snapshot is re-sent on every context read
-or referenced once** (images are cheap once and expensive forever after — the 2026-08-27 lesson).
+### ✅ 22:43 — AND WHERE THE SNAPSHOT GOES
+
+> ***"The snapshot goes in the thread and photo album"***
+
+**Both. The thread for Claude, the album for him.**
+
+- **Thread** — so it lands in the conversation like a photo does, the 2.5 shape.
+- **Photo album** — saved to Photos, which needs **add-only** access
+  (`PHPhotoLibrary` `.addOnly`, `NSPhotoLibraryAddUsageDescription`). **The app never needs to READ
+  his library**, and add-only is both the correct level and the lighter ask at review.
+
+**A good consequence, possibly unintended:** once they are in Photos, his pin drops become
+**browsable by date alongside everything else he shoots, findable without the app**. The record
+outlives the tool — the same property that made today's cardiac photographs worth having.
+
+**⚠️ Existing rule still holds:** location lives in the data model; **do not write coordinates into
+photo EXIF.** iOS's own camera setting stays the single authority. A map snapshot *depicts* a place,
+which is not the same thing as stamping one into metadata. → [[feedback_photo_location_privacy]]
+
+**All three open questions are now closed.** Remaining before building is mechanical only: the
+`NSLocationWhenInUseUsageDescription` string, the temporary-full-accuracy purpose key text, the
+`NSPhotoLibraryAddUsageDescription` string, and whether the thread copy is re-sent on every context
+read or referenced once (images are cheap once and expensive forever after — the 2026-08-27 lesson).
 
 **Still nothing built.**
 

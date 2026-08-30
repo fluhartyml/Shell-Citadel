@@ -538,3 +538,68 @@ fit-to-columns is *already* a resizable terminal. **The engine adapts; the chrom
 
 **Not scheduled. Recorded because he said it, and because it is cheaper now than in October.**
 → [[feedback_design_it_right_first_not_patch_after]]
+
+---
+
+## 📋 CHECKLIST — raised 2026-08-30, NOT started, one at a time by his ruling
+
+**His rule, 07:04: *"We need to do one bug or tweak fix at a time not two questions."***
+**And 07:01: *"i dont want you to code and relaunch without running it by me first."***
+Describe → wait → code → wait → install. Nothing here gets started without his word.
+
+### ORDER IS HIS, set 07:15 — do not reshuffle it
+> ***"The waiting for response needs to be next on the checklist. The screen color
+> preferences need to be after the waiting for response animation bug fix but before the
+> two tone chat enhancement"***
+
+| # | Item | State |
+|---|---|---|
+| 1 | **Scrolling / text selection on the iPad** | built, awaiting his word to install |
+| 2 | **Waiting-for-response indicator — inconsistent** | not started |
+| 3 | **Screen colour preferences, per device** | not started |
+| 4 | **Two-tone chat — his text darker** | not started |
+
+**Note the shape of his ordering: the two BUG FIXES come first, then the preference, then the
+enhancement — and he named the last one an "enhancement" himself.** Do not let a nicer-sounding
+item jump the queue.
+
+### ⬜ 2 · Waiting-for-response indicator — inconsistent
+> ***"The waiting for your response has not been consistent"*** (07:11)
+
+**A cause was found and fixed at 06:56, and it may or may not be the whole of it.** Until then his
+own message came back from the Mac echoed as `[HH:MM Mac] …`; the app treats anything on the reply
+channel as a reply, so `waitingSince` was cleared about a second after it appeared. Measured: the
+last echo was 06:56 and nothing after it has echoed.
+
+**⚠️ DO NOT CLOSE THIS ON THAT EVIDENCE ALONE.** He reported the inconsistency at 07:11, *after*
+the echo fix, so either he was describing what he saw earlier or there is a second cause. **Ask him
+whether it is still happening before touching the code.** → [[feedback_verify_before_claiming]]
+
+**Other candidates if it persists:** a reply arriving in several chunks clears on the first one
+(correct, but looks brief); a `.system` line clears it too; and nothing clears it if a send fails
+silently.
+
+### ⬜ 4 · His text darker than Claude's text
+> ***"i need the text from me to be a darker shade than the text from you"*** (07:12)
+
+**Right now they are the same colour.** The transcript renders `.you` and `.claude` identically —
+only `.system` is dimmed — so a long conversation is a wall of one shade and he cannot pick his own
+lines out of it while scrolling back. The `>` and `·` prompt markers are the only distinction and
+they are one character wide.
+
+**Where:** `TerminalView.transcript`, the `foregroundStyle` on the line's `Text`. Today it reads
+`line.source == .system ? .secondary : .primary`.
+
+**⚠️ It has to come off HIS configured text colour, not a hard-coded grey.** He sets the terminal
+text colour himself (`TerminalAppearance.text`, defaulting to his own Terminal.app green), so
+"darker" means darker *than whatever he chose* — a fixed shade would fight his palette and would be
+wrong the moment he changes it. Derive it from the configured colour.
+
+### ⬜ 3 · Screen colour preferences per device — the `seedVersion` trapdoor
+Bumping `TerminalAppearance.currentSeed` **overwrites stored appearance on every device, once
+each.** So a change made to fix how the iPhone looks would silently reset the iPad he has already
+tuned. His concern, 07:00–07:01: *"I want the desplay on the iphone different from the personal
+settings on the ipad"* / *"If i change sceen settings on ipad i dont want to effedt iphone."*
+**The stores are already per-device** (plain `@AppStorage`, no iCloud sync anywhere) — the seed is
+the only thing that can reach across. **Open question: should the seed stop overwriting values he
+has deliberately changed?**

@@ -129,10 +129,24 @@ struct TerminalTabsView: View {
                     .accessibilityHidden(true)
             }
         }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if showingSplit { focusedPane = which }
-        }
+        // ⚠️ THE GESTURE ONLY EXISTS WHILE SPLIT, AND THAT IS THE WHOLE POINT.
+        //
+        // This used to be an unconditional `.contentShape(Rectangle()).onTapGesture`
+        // with the `if showingSplit` guard INSIDE the closure. The guard stopped the
+        // ACTION, but the gesture was still installed on every pane, on every device,
+        // all the time — and `contentShape(Rectangle())` made the whole pane hit-
+        // testable, so a container tap gesture sat on top of the transcript's ScrollView
+        // and competed with its drags.
+        //
+        // Michael, 2026-08-30, on the iPad: "I cant scroll back on my ipad" and "A big
+        // bug is from our iphone fix." He was right on both counts. This came in with
+        // the iPhone Ultra split-pane work, which he never uses on the iPad, and it cost
+        // him the ability to read back through his own conversation.
+        //
+        // A guard inside a closure does not remove a gesture. The gesture has to not be
+        // there.  → Skills Lab: a guard that gives up and forces is not a guard — this
+        // is its cousin, a guard placed where it cannot help.
+        .modifier(PaneFocusTap(active: showingSplit) { focusedPane = which })
     }
 
     // MARK: - Tab bar
@@ -269,4 +283,40 @@ struct TerminalTabsView: View {
 
 #Preview {
     TerminalTabsView()
+}
+
+/// Tap-to-focus that cannot steal anything underneath it.
+///
+/// HIS SPECIFICATION, 2026-08-30 07:09, and it is three requirements at once:
+///   "I want the tab bar to only be tapable unless you are highlighting to copy scrollable
+///    terminal text, you can do it on the mac you should be able to do it on ipad. I want
+///    the tabs to only be tapable and to tap the screen you want to focus everything on"
+///
+///   1. tab bar taps switch tabs
+///   2. tapping a screen focuses that screen — he wants this KEPT
+///   3. selecting text to copy, and scrolling back, must work like they do on his Mac
+///
+/// The old code failed 3 to get 2, and it failed it everywhere rather than only while
+/// split. `.textSelection(.enabled)` was already on in both views; it did nothing because
+/// an exclusive `onTapGesture` over the whole pane consumed the long-press that starts a
+/// selection and the drag that scrolls. One cause, all three symptoms.
+///
+/// TWO CHANGES, BOTH NEEDED:
+///   • `simultaneousGesture` instead of `onTapGesture` — it runs ALONGSIDE the scroll view
+///     and the text selection rather than in place of them, so nothing is consumed.
+///   • only while split — with one pane there is nothing to focus, so the safest thing to
+///     put over his transcript is nothing at all.
+private struct PaneFocusTap: ViewModifier {
+    let active: Bool
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        if active {
+            content
+                .contentShape(Rectangle())
+                .simultaneousGesture(TapGesture().onEnded { action() })
+        } else {
+            content
+        }
+    }
 }

@@ -6,7 +6,7 @@
 //
 //  WHY THIS EXISTS: SwiftUI's TextField exposes `.autocorrectionDisabled()` and
 //  `.textInputAutocapitalization(.never)` — and that is not enough. The keyboard's
-//  SMART PUNCTUATION is a separate set of behaviours, living on UITextInputTraits
+//  SMART PUNCTUATION is a separate set of behaviors, living on UITextInputTraits
 //  with no SwiftUI equivalent, and every one of them is wrong in a command field:
 //
 //    smartInsertDeleteType  — two spaces become ". ". This one bit Michael on the

@@ -102,7 +102,7 @@ enum Diagnosis {
             return true
         }
         // NIOSSH and NIO channel errors carry no useful message and no stable public
-        // code, so they are recognised by their domain rather than by a case.
+        // code, so they are recognized by their domain rather than by a case.
         let domain = ns.domain.lowercased()
         return domain.contains("niossh") || domain.contains("nioc") || domain.contains("citadel")
     }

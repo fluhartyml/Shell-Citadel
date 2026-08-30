@@ -17,7 +17,7 @@ import SwiftUI
 final class TerminalAppearance: ObservableObject {
     static let shared = TerminalAppearance()
 
-    /// His Terminal.app text colour, measured from the profile, not eyeballed.
+    /// His Terminal.app text color, measured from the profile, not eyeballed.
     static let michaelGreen = RGB(r: 0.1055125362, g: 0.9273828125, b: 0.1650446741)
     /// MEASURED off his external monitor on 2026-08-29, not guessed: rgb(32, 37, 49), the
     /// dominant background of the terminal window in the photo he sent. Near-black was my
@@ -76,12 +76,12 @@ final class TerminalAppearance: ObservableObject {
     // text from you", refined at 09:06: "i want the gren from me to be darker and text
     // from you to be lighter".
     //
-    // ⚠️ BOTH ARE DERIVED FROM `text`, NEVER HARD-CODED. He sets the terminal colour
+    // ⚠️ BOTH ARE DERIVED FROM `text`, NEVER HARD-CODED. He sets the terminal color
     // himself, so "darker" has to mean darker THAN WHATEVER HE CHOSE — a fixed pair of
     // greens would fight his palette and would be wrong the moment he changed it.
     //
     // Done in HSB so hue and saturation are untouched and only brightness moves: the two
-    // lines stay recognisably the same colour, which is the point. Two different hues
+    // lines stay recognizably the same color, which is the point. Two different hues
     // would read as two different meanings rather than two speakers.
 
     /// ⚠️ ONE CONSTANT, APPLIED ZERO ONE OR TWO TIMES. Michael, 2026-08-30 09:18:
@@ -90,7 +90,7 @@ final class TerminalAppearance: ObservableObject {
     ///
     /// So there is a single dim step. Whichever line should recede gets it once more than
     /// the other, and a light background gets it once more again because his green is a
-    /// bright colour and bright is unreadable on white.
+    /// bright color and bright is unreadable on white.
     ///
     ///                     Claude      Michael
     ///   dark background   base        base·d
@@ -113,8 +113,8 @@ final class TerminalAppearance: ObservableObject {
     }
 
     /// Multiply brightness in HSB, clamped, so hue and saturation are untouched and the
-    /// two lines stay recognisably one colour. Two hues would read as two meanings rather
-    /// than two speakers. Returns the colour unchanged if it cannot be read as RGB at all,
+    /// two lines stay recognizably one color. Two hues would read as two meanings rather
+    /// than two speakers. Returns the color unchanged if it cannot be read as RGB at all,
     /// which is safer than returning something invented.
     private static func shift(_ color: Color, brightness factor: Double) -> Color {
         var h: CGFloat = 0, sat: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
@@ -208,7 +208,7 @@ struct AppearanceSettingsView: View {
 }
 
 private extension View {
-    /// A live sample, because a colour picker without one is a guess.
+    /// A live sample, because a color picker without one is a guess.
     func previewSample(appearance: TerminalAppearance) -> some View {
         self.listRowBackground(Color(.secondarySystemGroupedBackground))
     }

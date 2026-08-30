@@ -98,7 +98,7 @@ struct ConnectionLibraryView: View {
             // Michael, 2026-08-29 21:54, having already asked once: "Wheres the slider? Is
             // the slider live?" It was live. It was buried.
             //
-            // Size, colours and geometry are per-DEVICE display settings — the same Mac
+            // Size, colors and geometry are per-DEVICE display settings — the same Mac
             // wants 36pt on an iPad and half that on a phone. So it gets its own row.
             Section {
                 Button {
@@ -115,7 +115,7 @@ struct ConnectionLibraryView: View {
                 }
                 .buttonStyle(.plain)
             } footer: {
-                Text("Font size, colours and terminal geometry. Stored on this device only, so your iPad and your iPhone can differ.")
+                Text("Font size, colors and terminal geometry. Stored on this device only, so your iPad and your iPhone can differ.")
             }
         }
         .sheet(isPresented: $showingAppearance) {

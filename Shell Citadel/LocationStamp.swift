@@ -35,7 +35,7 @@
 //  AT ALL, on the LAN. Rounding is offline, instant and free.
 //
 //      0.1°   ≈ 11 km    which town
-//      0.01°  ≈ 1.1 km   which neighbourhood   ← this one, his choice
+//      0.01°  ≈ 1.1 km   which neighborhood   ← this one, his choice
 //      0.001° ≈ 110 m    which building
 //
 //  Rounded AT THE SOURCE, not stored precise and merely displayed rounded — that is what
@@ -53,7 +53,7 @@
 //  tachycardia he rode out alone — and a coordinate riding along means Claude knows
 //  where he is at the moment typing is hardest. That is CONTEXT FOR A MESSAGE.
 //  His pendant is the dispatch path, with his address already on file at a staffed
-//  monitoring centre.  → project_he_has_a_monitored_panic_necklace
+//  monitoring center.  → project_he_has_a_monitored_panic_necklace
 //
 
 import CoreLocation

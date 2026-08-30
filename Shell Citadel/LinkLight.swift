@@ -42,7 +42,7 @@ final class LinkLight {
         case yellow     // interference — slow, or one beat missed
         case green      // all functional — verified inside the last interval
 
-        var colour: Color {
+        var color: Color {
             switch self {
             case .red: .red
             case .yellow: .yellow
@@ -51,7 +51,7 @@ final class LinkLight {
         }
 
         /// Spoken by VoiceOver, and shown in the popover. Written as plain sentences
-        /// because "yellow" on its own tells him a colour, not a situation.
+        /// because "yellow" on its own tells him a color, not a situation.
         var summary: String {
             switch self {
             case .red: "No signal. Nothing you send will arrive."
@@ -182,7 +182,7 @@ final class LinkLight {
 
 /// Deliberately a filled circle and not bars. Bars imply a resolution this cannot
 /// honestly deliver — there is no signal strength to measure, only "did a round trip
-/// complete, and how fast". Three states, three colours, no false precision.
+/// complete, and how fast". Three states, three colors, no false precision.
 struct LinkLightView: View {
     let light: LinkLight
     @State private var showingDetail = false
@@ -192,7 +192,7 @@ struct LinkLightView: View {
             showingDetail = true
         } label: {
             Circle()
-                .fill(light.quality.colour)
+                .fill(light.quality.color)
                 .frame(width: 12, height: 12)
                 // Without this the yellow and green dots are nearly the same shape
                 // against a light toolbar, and the whole point is glanceability.
@@ -203,7 +203,7 @@ struct LinkLightView: View {
         #if DEBUG
         // Long press. Compiled out of Release entirely — see `LinkLight.simulated`.
         // Every label says SIMULATED, so a screenshot taken in a debug build cannot be
-        // mistaken for real behaviour either.
+        // mistaken for real behavior either.
         .contextMenu {
             Section("Debug — not in release builds") {
                 Button("SIMULATED green")  { light.simulated = .green }

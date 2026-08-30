@@ -56,6 +56,9 @@ struct TerminalView: View {
     /// Starts at 1, not 0: 1 is the first request, and it is what makes the caret land
     /// in the field the moment the view appears. 0 is reserved to mean "never auto-focus".
     @State private var focusRequest = 1
+    /// The transcript's own usable width, measured rather than assumed, so the point size
+    /// can be derived from his column count the same way the dumb terminal does it.
+    @State private var transcriptWidth: Double = 0
     /// A stable id for the waiting row so the scroller can reach it. The transcript
     /// scrolls to `lines.last`, which would leave this row below the fold — the one row
     /// he actually needs to see.
@@ -89,7 +92,7 @@ struct TerminalView: View {
     @Environment(\.scenePhase) private var scenePhase
     /// Which pair of tones to use. The app follows the system appearance by his ruling
     /// ("i want the background to be system light or dark mode"), so the text has to
-    /// follow it too — a colour picked against near-black is unreadable on white.
+    /// follow it too — a color picked against near-black is unreadable on white.
     @Environment(\.colorScheme) private var colorScheme
 
     init(profileKey: String = "connectionProfile") {
@@ -291,9 +294,9 @@ struct TerminalView: View {
                             Text(line.text)
                                 .textSelection(.enabled)
                                 // TWO TONES, ONE COLOUR. His lines darker, Claude's
-                                // lighter, both derived from the terminal colour he set
+                                // lighter, both derived from the terminal color he set
                                 // — see TerminalAppearance.mineColor / theirsColor.
-                                // `.system` stays neutral grey on purpose: app notices
+                                // `.system` stays neutral gray on purpose: app notices
                                 // are neither of them speaking.
                                 .foregroundStyle(colorFor(line.source))
                                 // ALL ONE FACE. Michael, 2026-08-29, holding the app up
@@ -320,6 +323,15 @@ struct TerminalView: View {
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 12)
+                // Measured on the CONTENT, inside the horizontal padding, so the number
+                // is the width a line of text really has rather than the screen's.
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.onChange(of: geo.size.width, initial: true) { _, w in
+                            transcriptWidth = w
+                        }
+                    }
+                )
             }
             // A HARD top edge, not the default soft one. Michael, 2026-08-23, from a
             // screenshot: his own line was sitting behind the translucent bar and the
@@ -1035,10 +1047,29 @@ struct TerminalView: View {
     /// "i want the background to be system light or dark mode". Leaving it unset is what
     /// makes that true — the transcript sits on the system background and follows the
     /// device. Painting it would break exactly what he asked for.
-    /// His size, his face. Floor of 11pt so a slider dragged to nothing cannot make the
-    /// conversation unreadable; no ceiling, because 36 is his and it is deliberate.
+    /// His size, his face — and by HIS control, which is the column count and not the
+    /// slider. Michael, 2026-08-30 11:40: "I use the column vs lines because its easier to
+    /// type then use the slider."
+    ///
+    /// ⚠️ THE TWO SCREENS USED TO DISAGREE. The dumb terminal has always honored
+    /// `fitToColumns` — on, the column count is authoritative and the point size is
+    /// derived from the available width; off, the slider wins. The transcript ignored both
+    /// and sat at a flat `fontSize`, so with fitting ON the terminal sized itself to 85
+    /// columns while the conversation did something else entirely. One setting, two
+    /// answers.
+    ///
+    /// Now it is the same rule in both places, from the same helper, so 85 × 20 means the
+    /// same thing wherever he is looking.
+    ///
+    /// Floor of 11pt so a slider dragged to nothing cannot make the conversation
+    /// unreadable; no ceiling, because 36 is his and it is deliberate.
     private var transcriptFont: Font {
-        .custom(TerminalFont.regular, size: max(11, appearance.fontSize))
+        .custom(TerminalFont.regular, size: max(11, transcriptSize))
+    }
+
+    private var transcriptSize: Double {
+        guard appearance.fitToColumns, transcriptWidth > 0 else { return appearance.fontSize }
+        return TerminalAppearance.sizeToFit(columns: appearance.cols, width: transcriptWidth)
     }
 
     private func colorFor(_ source: TranscriptLine.Source) -> Color {

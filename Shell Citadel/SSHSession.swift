@@ -352,7 +352,7 @@ actor SSHSession {
     /// phone last read, so locking the screen or walking out of range costs nothing —
     /// the Mac's file kept everything, and the reconnect fills in the gap in order.
     ///
-    /// `startingAtByte == 0` keeps the ORIGINAL behaviour, `tail -n 0 -F`: start at the
+    /// `startingAtByte == 0` keeps the ORIGINAL behavior, `tail -n 0 -F`: start at the
     /// end. That is right for a first-ever connection, where replaying months of an old
     /// session at someone would be worse than showing them nothing.
     ///

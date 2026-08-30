@@ -224,7 +224,7 @@ struct TerminalTabsView: View {
         .contentShape(RoundedRectangle(cornerRadius: 7))
         .onTapGesture {
             // A chip fills the pane you are looking at. With no split there is only one
-            // pane, so this is the old behaviour unchanged.
+            // pane, so this is the old behavior unchanged.
             if showingSplit && focusedPane == .secondary {
                 companion = tab.id
             } else {

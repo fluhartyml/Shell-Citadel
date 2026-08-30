@@ -320,10 +320,28 @@ struct TerminalView: View {
             .disabled(!connected || isBusy)
             .accessibilityLabel("Send a picture")
 
-            Text(promptLabel)
-                .font(TerminalFont.mono(.caption))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            // THE PROMPT IS NOT WELCOME IN THIS ROW ON A PHONE.
+            //
+            // Michael, 2026-08-29 21:40, with a photograph: "It says michael and i bairly
+            // have room to type." The label was rendering a full shell prompt —
+            // `michaelfluharty@Michaels-MacBook-Air:~ $`, about forty monospace characters —
+            // in the same HStack as the text field, so his sentence was clipped to
+            // "eeds work" before he had finished typing it.
+            //
+            // It is wrong twice over in ATTACH mode: he is talking to Claude through tmux,
+            // not to a shell, so a shell prompt is misleading AND it is eating the width.
+            // The prompt he asked for this morning was for the DIRECT terminal, where the
+            // remote machine draws its own prompt inside the screen — that one is real and
+            // is untouched by this.
+            //
+            // So: nothing at all when connected. A bare ">" when disconnected, because
+            // there the row IS the destination line and one character earns its place.
+            if !connected {
+                Text(">")
+                    .font(TerminalFont.mono(.caption))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
 
             // A UIKit field, not a TextField: SwiftUI cannot switch off smart
             // punctuation, and a keyboard that turns two spaces into ". " or "--"
@@ -388,6 +406,8 @@ struct TerminalView: View {
     /// The path is abbreviated to its last component, and the home directory shows as `~`,
     /// because a full path on a phone eats the whole composer — which is the same reason
     /// every real shell does exactly this.
+    /// Kept for the connection header and any regular-width surface that wants it.
+    /// **Deliberately no longer rendered in the composer row** — see the comment there.
     private var promptLabel: String {
         guard connected else { return ">" }
         let who = remoteUser.isEmpty ? profile.username : remoteUser

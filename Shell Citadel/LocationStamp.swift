@@ -143,9 +143,22 @@ final class LocationStamp: NSObject, CLLocationManagerDelegate {
     /// What actually rides along on a human→Claude message. Not drawn in his bubble.
     /// Deliberately bracketed and named so that a human reading the raw thread months
     /// later can tell what it is without asking.
+    ///
+    /// ⚠️ A SPACE, NEVER A NEWLINE — and this was written with one, and it split his
+    /// first real message in two.
+    ///
+    /// `SSHSession.send` delivers the whole string with `tmux set-buffer` +
+    /// `paste-buffer`, then presses Enter. A newline INSIDE that buffer is therefore not
+    /// whitespace, it is a KEYSTROKE: the paste submits everything before it as one
+    /// message, and the trailing Enter submits the remainder as a SECOND one. On
+    /// 2026-08-30 that arrived as a bare `[gps 28.95,-95.29]` with no sentence attached
+    /// — the feature working correctly and being delivered wrongly.
+    ///
+    /// The stamp must ride on the SAME line as his words. Anything appended to a message
+    /// bound for a paste-buffer has to be newline-free for the same reason.
     func messageSuffix() -> String {
         guard let stamp = coarseStamp() else { return "" }
-        return "\n[gps \(stamp)]"
+        return " [gps \(stamp)]"
     }
 
     private var isAuthorized: Bool {

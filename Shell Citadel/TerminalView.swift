@@ -32,6 +32,17 @@ struct TerminalView: View {
     /// Running the scripted demonstration instead of a connection. See [[DemoMode]] —
     /// this exists for App Review, who have no Mac of their own to connect to.
     @State private var isDemo = false
+    /// When his last message went out with no reply back yet. Non-nil is what puts the
+    /// waiting row on screen. Michael, 2026-08-30: "i cant tell on my ipad."
+    ///
+    /// ⚠️ ATTACH MODE ONLY. Direct mode's answer comes straight back on the same call, so
+    /// there is no gap to fill and a waiting row there would flicker for a frame and lie
+    /// for the rest.
+    @State private var waitingSince: Date?
+    /// A stable id for the waiting row so the scroller can reach it. The transcript
+    /// scrolls to `lines.last`, which would leave this row below the fold — the one row
+    /// he actually needs to see.
+    private static let waitingRowID = "waiting-row"
     @State private var showingCamera = false
     @State private var showingLibrary = false
     @State private var pickedFromLibrary: PhotosPickerItem?
@@ -295,6 +306,15 @@ struct TerminalView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .id(line.id)
                     }
+
+                    // HIS ANSWER TO "IS IT LOCKED UP?", 2026-08-30 06:39. It sits at the
+                    // bottom of the conversation, below his own last line, which is where
+                    // he is already looking after pressing send. See [[WaitingIndicator]]
+                    // for why it shows a clock instead of claiming Claude is typing.
+                    if let since = waitingSince {
+                        WaitingIndicator(since: since)
+                            .id(Self.waitingRowID)
+                    }
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 12)
@@ -308,9 +328,15 @@ struct TerminalView: View {
             // (`scrollEdgeEffectStyle` is iOS 26+; the app's floor is 27, so no guard.)
             .scrollEdgeEffectStyle(.hard, for: .top)
             .onChange(of: lines.count) {
-                if let last = lines.last {
+                if waitingSince != nil {
+                    withAnimation { proxy.scrollTo(Self.waitingRowID, anchor: .bottom) }
+                } else if let last = lines.last {
                     withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                 }
+            }
+            .onChange(of: waitingSince) { _, now in
+                guard now != nil else { return }
+                withAnimation { proxy.scrollTo(Self.waitingRowID, anchor: .bottom) }
             }
         }
     }
@@ -640,6 +666,9 @@ struct TerminalView: View {
                     // Empty string when there is no fix — a message must never be held up
                     // or altered because location was unavailable.
                     try await session.send(text + LocationStamp.shared.messageSuffix())
+                    // The clock starts when the message is AWAY, not when he pressed
+                    // send — the upload is not part of the wait he is asking about.
+                    waitingSince = Date()
                 }
             } catch {
                 append(.system, Diagnosis.sentence(for: error, while: .sending))
@@ -651,6 +680,7 @@ struct TerminalView: View {
                 connected = false
                 link.markDown()
                 append(.system, "Disconnected. Tap Connect to try again.")
+                waitingSince = nil
             }
             isBusy = false
         }
@@ -816,7 +846,12 @@ struct TerminalView: View {
                 // photograph. A pin that vanishes into a conversation is one he cannot
                 // later prove he dropped.
                 append(.you, "📍 \(coords) — \(data.count / 1024) KB")
-                try await session.send("📍 I dropped a pin: \(coords)\n\(path)")
+                // ⚠️ NO NEWLINE. Same trap as the message stamp: `send` pastes into a tmux
+                // buffer and then presses Enter, so a newline in here is a keystroke that
+                // submits early. His first real pin arrived as
+                // "28.940900, -95.297888/Users/michaelfluharty/..." with the coordinate
+                // welded to the path. A separator has to be visible AND newline-free.
+                try await session.send("📍 I dropped a pin: \(coords) — \(path)")
 
                 do {
                     try await LocationStamp.saveToPhotoLibrary(image)
@@ -916,6 +951,16 @@ struct TerminalView: View {
 
     private func append(_ source: TranscriptLine.Source, _ text: String, isOutput: Bool = false) {
         lines.append(.init(source, text, isOutput: isOutput))
+
+        // THE WAIT ENDS HERE, FOR EVERY PATH AT ONCE. Clearing it at each call site
+        // instead would mean remembering to do it in the voice channel, in the error
+        // handler, on disconnect — and the one that got forgotten would leave a clock
+        // ticking forever under a conversation that had already moved on.
+        //
+        // A `.system` line counts too: "Disconnected", or a diagnosis sentence, is an
+        // answer about why nothing is coming, so leaving the row spinning underneath it
+        // would be the app contradicting itself.
+        if source != .you { waitingSince = nil }
     }
 
     // MARK: - Persistence

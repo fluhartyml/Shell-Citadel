@@ -554,8 +554,8 @@ Describe → wait → code → wait → install. Nothing here gets started witho
 
 | # | Item | State |
 |---|---|---|
-| 1 | **Scrolling / text selection on the iPad** | built, awaiting his word to install |
-| 2 | **Waiting-for-response indicator — inconsistent** | not started |
+| 1 | **Scrolling / text selection on the iPad** | ✅ **DONE** `abf2c72` — proved on his iPad, by him: scrolled back, selected my text, copied it, sent it as the evidence |
+| 2 | **Waiting-for-response indicator — inconsistent** | ⏸️ **PARKED 07:23, not reproducing** |
 | 3 | **Screen colour preferences, per device** | not started |
 | 4 | **Two-tone chat — his text darker** | not started |
 
@@ -574,6 +574,12 @@ last echo was 06:56 and nothing after it has echoed.
 **⚠️ DO NOT CLOSE THIS ON THAT EVIDENCE ALONE.** He reported the inconsistency at 07:11, *after*
 the echo fix, so either he was describing what he saw earlier or there is a second cause. **Ask him
 whether it is still happening before touching the code.** → [[feedback_verify_before_claiming]]
+
+**⏸️ PARKED 2026-08-23... no — 2026-08-30 07:23. His words: *"Inconsistency cant be determined
+because at the moment it works."*** So it is not reproducing, and the echo fix at 06:56 is the only
+cause anyone can actually point at. **Do not go changing code on a theory** — that is how the four
+regressions of this morning happened. **Wait for a live case.** If the row vanishes on him again he
+will say so, and then there is something real to work from. → [[feedback_fail_safe_principle]]
 
 **Other candidates if it persists:** a reply arriving in several chunks clears on the first one
 (correct, but looks brief); a `.system` line clears it too; and nothing clears it if a send fails

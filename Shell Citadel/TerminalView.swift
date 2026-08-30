@@ -96,6 +96,7 @@ struct TerminalView: View {
                         .background(.orange.opacity(0.9))
                         .foregroundStyle(.black)
                 }
+                statusStrip
                 // A DUMB TERMINAL, WHEN THAT IS WHAT THIS IS. Direct mode on a live
                 // connection hands the whole screen to the PTY — his shell, his prompt,
                 // his output, no rows composed by us. Everything else keeps the
@@ -248,37 +249,12 @@ struct TerminalView: View {
             }
             .font(.callout)
         }
-        ToolbarItem(placement: .principal) {
-            // The prompt is a connection state, not a `$`. A terminal that is only a
-            // costume can say something useful in that spot instead.
-            //
-            // THE LIGHT SITS BESIDE THE WORD, AND THEY MEAN DIFFERENT THINGS.
-            // "Connected" is what the app BELIEVES — the handshake succeeded and nothing
-            // has thrown since. The light is what has been MEASURED in the last ten
-            // seconds. They disagree exactly when it matters: a socket killed by a lock
-            // screen or a wifi handoff leaves the word saying Connected while the light
-            // goes red. See [[LinkLight]].
-            HStack(spacing: 6) {
-                if isDemo {
-                    // A THIRD STATE, deliberately not green and not red. Green would be a
-                    // lie and red reads as a fault. Orange says "this is not real" without
-                    // suggesting something is broken.
-                    Circle().fill(.orange).frame(width: 12, height: 12)
-                        .overlay(Circle().stroke(.primary.opacity(0.25), lineWidth: 0.5))
-                    Label(DemoMode.statusLabel, systemImage: "theatermasks")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .labelStyle(.titleAndIcon)
-                } else {
-                    LinkLightView(light: link)
-                    Label(connected ? "Connected" : "Not connected",
-                          systemImage: connected ? "bolt.horizontal.circle.fill" : "bolt.horizontal.circle")
-                        .font(.caption)
-                        .foregroundStyle(connected ? .green : .secondary)
-                        .labelStyle(.titleAndIcon)
-                }
-            }
-        }
+        // ⚠️ THE STATUS IS NO LONGER IN THE TOOLBAR. Michael, 2026-08-30 08:13:
+        // "maybe the connected statis that is missing on the iPhone" — he was right, the
+        // principal slot was being squeezed out entirely by Disconnect and Demo on a
+        // phone-width bar, so the one indicator that says whether the app is alive was
+        // invisible on the device he carries. It lives in `statusStrip` now, below the
+        // bar, where nothing competes for the width.
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 showingAbout = true
@@ -318,10 +294,10 @@ struct TerminalView: View {
                     // bottom of the conversation, below his own last line, which is where
                     // he is already looking after pressing send. See [[WaitingIndicator]]
                     // for why it shows a clock instead of claiming Claude is typing.
-                    if let since = waitingSince {
-                        WaitingIndicator(since: since)
-                            .id(Self.waitingRowID)
-                    }
+                    // The waiting row USED to live here, at the bottom of the
+                    // transcript, and that is precisely why he could not rely on it: it
+                    // scrolled out of view under his own message. It is in `statusStrip`
+                    // now, which never scrolls. Do not put it back.
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 12)
@@ -341,11 +317,58 @@ struct TerminalView: View {
                     withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                 }
             }
-            .onChange(of: waitingSince) { _, now in
-                guard now != nil else { return }
-                withAnimation { proxy.scrollTo(Self.waitingRowID, anchor: .bottom) }
-            }
+            // NOT `.onChange(of: waitingSince)` any more — see the row's own `onAppear`
+            // above for why that could never work.
         }
+    }
+
+    /// HIS DESIGN, 2026-08-30 08:13, and it is better than the row it replaces:
+    /// "How anout relocatimg the animation to small text under where the settings slider
+    ///  and connecdisconnecy is maybe the connected statis that is missing on the iPhone
+    ///  is alternates between connected and waiting connected is a green light and waiting
+    ///  for message is yellow"
+    ///
+    /// Two problems, one answer. The waiting indicator was living at the bottom of the
+    /// transcript, where it scrolled out of view under his own message — the whole reason
+    /// he reported it four times as inconsistent. And the connection status was being
+    /// squeezed out of the toolbar entirely on a phone. Putting the status here, in a
+    /// fixed strip that never scrolls, fixes both: it is always on screen, and it has room
+    /// to say more than one word.
+    ///
+    /// THE LIGHT AND THE WORD MEAN DIFFERENT THINGS and that is preserved from the old
+    /// toolbar item: "Connected" is what the app BELIEVES, the light is what has been
+    /// MEASURED in the last ten seconds. They disagree exactly when it matters — a socket
+    /// killed by a lock screen leaves the word saying Connected while the light goes red.
+    /// See [[LinkLight]]. Waiting is layered ON TOP of that, never instead of it: a yellow
+    /// dot means "your message is away and nothing has come back yet", which is only
+    /// meaningful while connected.
+    private var statusStrip: some View {
+        HStack(spacing: 6) {
+            if isDemo {
+                // A THIRD STATE, deliberately not green and not red. Green would be a lie
+                // and red reads as a fault. Orange says "this is not real" without
+                // suggesting something is broken.
+                Circle().fill(.orange).frame(width: 9, height: 9)
+                    .overlay(Circle().stroke(.primary.opacity(0.25), lineWidth: 0.5))
+                Text(DemoMode.statusLabel)
+                    .foregroundStyle(.orange)
+            } else if let since = waitingSince {
+                // HIS COLOUR, HIS MEANING: "waiting for message is yellow".
+                Circle().fill(.yellow).frame(width: 9, height: 9)
+                    .overlay(Circle().stroke(.primary.opacity(0.25), lineWidth: 0.5))
+                WaitingIndicator(since: since)
+            } else {
+                LinkLightView(light: link)
+                Text(connected ? "Connected" : "Not connected")
+                    .foregroundStyle(connected ? .green : .secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .font(.caption)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
     }
 
     private var composer: some View {

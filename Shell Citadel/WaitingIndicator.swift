@@ -53,15 +53,11 @@ struct WaitingIndicator: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            // Matches the transcript's own prompt column so the row lines up with the
-            // conversation rather than floating beside it.
-            Text("·")
-                .font(TerminalFont.mono(.callout))
-                .foregroundStyle(.secondary)
-
+            // No prompt column and no font of its own any more. This used to be a row in
+            // the transcript and needed to line up with it; since 2026-08-30 it lives in
+            // the fixed status strip beside a yellow dot, and it inherits that strip's
+            // caption font so it matches "Connected" exactly rather than shouting.
             Text(label)
-                .font(TerminalFont.mono(.callout))
-                .foregroundStyle(.secondary)
                 // Announced as one changing value rather than as new text every half
                 // second, which would make VoiceOver read the row aloud continuously.
                 .accessibilityLabel("Waiting for a reply, \(Int(elapsed)) seconds")

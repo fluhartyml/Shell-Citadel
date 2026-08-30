@@ -375,6 +375,29 @@ can mean "not shown in the bubble" without meaning "not declared to Apple."
 **His call; flagged so it is a decision and not an accident.** → [[feedback_photo_location_privacy]]
 (same rule still holds: location lives in the data model, never written into photo EXIF).
 
+### ⭐ 2026-08-29 — TODAY GAVE B A REASON IT DID NOT HAVE YESTERDAY
+
+**He re-asked for this at 22:38, hours after a 35-minute tachycardia at 183–208 bpm that he rode out
+alone in the house.** Yesterday the silent stamp was useful metadata — *where was he when he said
+that*. **Today it is part of the safety layer.**
+
+**If he messages Claude during an episode, a coordinate riding along means Claude knows where he is
+without him having to type it** — at exactly the moment typing is hardest. And the gap identified in
+`Workshop/Lighthouse-Heartbeat-Bridge-DESIGN-2026-08-29.md` is *"the twenty minutes before he
+presses anything"*, where the one genuinely useful thing Claude can do is **text a human**. **A text
+that says where he is beats one that does not.**
+
+**This raises B's priority and lowers its cost of being imperfect.** A cached fix that is five
+minutes and two hundred metres stale is still the difference between *"he is at the house"* and
+*nothing at all*.
+
+**⚠️ It does NOT make it a safety system**, and must not be described as one. His **pendant** is the
+dispatch path, with his address already on file at a staffed monitoring centre. **This is context
+for a message, not a beacon.** → [[he-has-a-monitored-panic-necklace]] · [[feedback_fail_safe_principle]]
+
+**Nothing built. Still his call on coarse vs precise, and on whether the snapshot goes in the thread
+or only the coordinate.**
+
 #### ✅ DECIDED 2026-08-28 07:40 — accuracy per feature
 > *"For the pin drop i want precise location and for the chat thread i want general"*
 

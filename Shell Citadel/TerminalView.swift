@@ -495,6 +495,23 @@ struct TerminalView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
+        // ⚠️ ROOM FOR SOMETHING THAT IS NOT OURS TO MOVE.
+        //
+        // Michael, 2026-08-30 08:48, from the iPad: "The a is over the (^) send button too."
+        //
+        // With a hardware keyboard attached, iPadOS floats its own control at the bottom
+        // right — collapsed it is a small [A], expanded it opens into the predictive-text
+        // strip with the dictation microphone. Collapsed, it parks exactly on top of the
+        // send arrow. It is a system overlay: the app cannot move it, hide it, or know
+        // where it is.
+        //
+        // His workaround was to keep the strip permanently open. That works and it costs
+        // him a band of screen forever, and it only works while he remembers. Reserving
+        // the corner costs nothing and he never thinks about it again.
+        //
+        // 44pt is Apple's own minimum touch target, which is the right size for the space
+        // a floating control needs.
+        .padding(.bottom, 44)
         // Lives on the composer, not in the menu — the composer is still on screen when
         // the menu goes away, so the sheet has somewhere to be presented from.
         .photosPicker(isPresented: $showingLibrary,

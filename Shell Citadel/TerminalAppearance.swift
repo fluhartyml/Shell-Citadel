@@ -170,7 +170,21 @@ struct AppearanceSettingsView: View {
 
     var body: some View {
         Section {
-            Toggle("Fit to columns", isOn: $appearance.fitToColumns)
+            // ⚠️ THE LABEL HAS TO NAME THE CONSEQUENCE, NOT THE MECHANISM.
+            // Michael, 2026-08-30 11:49: "The lable of the toggle was not obvious so i
+            // saw it resize with the slider." He had already asked, minutes earlier,
+            // whether the dead slider had a snap — "Fit to columns" told him what the
+            // feature is called and nothing about what it DOES to the control right
+            // below it. A user reading a greyed-out slider should not have to infer the
+            // cause from a two-word label above it.
+            Toggle(isOn: $appearance.fitToColumns) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Fit to columns")
+                    Text("Columns set the text size. Turn off to use the slider.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Stepper(value: $appearance.cols, in: 20...200, step: 1) {
                 LabeledContent("Columns") { Text("\(appearance.cols)") }
             }
@@ -178,9 +192,12 @@ struct AppearanceSettingsView: View {
                 LabeledContent("Lines") { Text("\(appearance.rows)") }
             }
             VStack(alignment: .leading, spacing: 6) {
+                // Greyed WITH the slider, so the row reads as off together. A live-looking
+                // label above a dead control is what made this ambiguous.
                 LabeledContent("Size") {
                     Text(appearance.fitToColumns ? "from columns" : "\(Int(appearance.fontSize)) pt")
                 }
+                .foregroundStyle(appearance.fitToColumns ? .secondary : .primary)
                 Slider(value: $appearance.fontSize, in: 6...60, step: 1)
                     .disabled(appearance.fitToColumns)
             }
@@ -194,7 +211,7 @@ struct AppearanceSettingsView: View {
         } header: {
             Text("Terminal appearance")
         } footer: {
-            Text("Starts as the profile from his Mac's Terminal — Meslo, green on his dark navy. 84 by 20 is the size of his own Terminal window, verified from its title bar; 80 by 24 is the classic VT100, and it is what gets reported to the far end so full-screen programs draw correctly. Change any of it; it applies to every tab.")
+            Text("Starts as the profile from his Mac's Terminal — Meslo, green on his dark navy. 85 by 20 is his own Terminal window; 80 by 24 is the classic VT100, and the column count is what gets reported to the far end so full-screen programs draw correctly. With Fit to columns on, the columns set the text size and the slider is switched off — on a fixed screen one determines the other. Change any of it; it applies to every tab.")
         }
         .previewSample(appearance: appearance)
     }

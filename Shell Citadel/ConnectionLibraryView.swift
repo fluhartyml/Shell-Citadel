@@ -25,6 +25,7 @@ struct ConnectionLibraryView: View {
 
     @State private var editing: ConnectionProfile?
     @State private var pendingDelete: ConnectionProfile?
+    @State private var showingAppearance = false
 
     var body: some View {
         NavigationStack {
@@ -85,6 +86,48 @@ struct ConnectionLibraryView: View {
                 }
             } footer: {
                 Text("Tap a connection to run it in this tab. Touch and hold to edit or delete.")
+            }
+
+            // APPEARANCE IS NOT A PROPERTY OF A CONNECTION.
+            //
+            // It lived at the bottom of the connection form only because that is where it
+            // was first written — so once the sliders icon started opening THIS view
+            // instead, changing a font size meant: sliders, long-press a connection, Edit,
+            // scroll to the bottom. Three levels down, behind the same gesture as Delete.
+            //
+            // Michael, 2026-08-29 21:54, having already asked once: "Wheres the slider? Is
+            // the slider live?" It was live. It was buried.
+            //
+            // Size, colours and geometry are per-DEVICE display settings — the same Mac
+            // wants 36pt on an iPad and half that on a phone. So it gets its own row.
+            Section {
+                Button {
+                    showingAppearance = true
+                } label: {
+                    LabeledContent {
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    } label: {
+                        Label("Appearance", systemImage: "textformat.size")
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            } footer: {
+                Text("Font size, colours and terminal geometry. Stored on this device only, so your iPad and your iPhone can differ.")
+            }
+        }
+        .sheet(isPresented: $showingAppearance) {
+            NavigationStack {
+                Form { AppearanceSettingsView() }
+                    .navigationTitle("Appearance")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showingAppearance = false }
+                        }
+                    }
             }
         }
     }

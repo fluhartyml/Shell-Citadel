@@ -395,8 +395,32 @@ minutes and two hundred metres stale is still the difference between *"he is at 
 dispatch path, with his address already on file at a staffed monitoring centre. **This is context
 for a message, not a beacon.** → [[he-has-a-monitored-panic-necklace]] · [[feedback_fail_safe_principle]]
 
-**Nothing built. Still his call on coarse vs precise, and on whether the snapshot goes in the thread
-or only the coordinate.**
+### ✅ 2026-08-29 22:42 — HE ANSWERED THE OPEN QUESTIONS
+
+> ***"Course for regular chat precice for the pin drop picture of the map"***
+
+| | Accuracy | Snapshot image? |
+|---|---|---|
+| **B — the silent stamp on every message** | **Coarse** | No — coordinate only |
+| **A — the explicit pin drop** | **Precise** | **Yes** — he wants the map picture |
+
+**⭐ And iOS has a sanctioned mechanism for exactly this split**, so it is his design rather than a
+workaround: run the app at **reduced accuracy** (`kCLLocationAccuracyReduced`) as the normal state,
+and call **`requestTemporaryFullAccuracyAuthorization(withPurposeKey:)`** when he taps the pin drop.
+The system asks once, grants precision for that stated purpose, and returns to reduced afterwards.
+
+**Three things that makes better at once:**
+- **Battery** — the radio is not spun for full precision on every line he types.
+- **App Store review** — reduced-by-default with a named purpose key is the pattern Apple documents
+  and expects; it reads as restraint rather than collection.
+- **Honesty** — the purpose key is user-visible text explaining *why* precision is needed at that
+  moment, and "drop a pin on the map" is an easy sentence to write truthfully.
+
+**Both open questions are now closed. Remaining before building: the `NSLocationWhenInUseUsage`
+description string, the purpose key text, and whether the snapshot is re-sent on every context read
+or referenced once** (images are cheap once and expensive forever after — the 2026-08-27 lesson).
+
+**Still nothing built.**
 
 #### ✅ DECIDED 2026-08-28 07:40 — accuracy per feature
 > *"For the pin drop i want precise location and for the chat thread i want general"*

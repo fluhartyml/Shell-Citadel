@@ -39,6 +39,13 @@ struct TerminalView: View {
     /// there is no gap to fill and a waiting row there would flicker for a frame and lie
     /// for the rest.
     @State private var waitingSince: Date?
+    /// Bumped to ask the composer for the caret. See [[CommandField]] for why this is a
+    /// counter rather than a Bool. Raised on first appearance, after a send, after a
+    /// picture or a pin, and whenever a sheet closes — every point where iOS may have
+    /// handed first responder to something else and not given it back.
+    /// Starts at 1, not 0: 1 is the first request, and it is what makes the caret land
+    /// in the field the moment the view appears. 0 is reserved to mean "never auto-focus".
+    @State private var focusRequest = 1
     /// A stable id for the waiting row so the scroller can reach it. The transcript
     /// scrolls to `lines.last`, which would leave this row below the fold — the one row
     /// he actually needs to see.
@@ -105,8 +112,8 @@ struct TerminalView: View {
             .navigationTitle(profile.name.isEmpty ? "Shell Citadel" : profile.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
-            .sheet(isPresented: $showingAbout) { AboutView() }
-            .fullScreenCover(isPresented: $showingCamera) {
+            .sheet(isPresented: $showingAbout, onDismiss: { focusRequest += 1 }) { AboutView() }
+            .fullScreenCover(isPresented: $showingCamera, onDismiss: { focusRequest += 1 }) {
                 CameraCapture { image in sendPicture(image) }
                     .ignoresSafeArea()
             }
@@ -130,7 +137,7 @@ struct TerminalView: View {
                     if finished.isComplete && !secret.isEmpty { connect() }
                 }
             }
-            .sheet(isPresented: $showingSettings, onDismiss: persistProfile) {
+            .sheet(isPresented: $showingSettings, onDismiss: { persistProfile(); focusRequest += 1 }) {
                 // THE SLIDERS ICON OPENS THE SHARED LIBRARY, NOT THIS TAB'S FORM.
                 // Michael, 2026-08-29: "each connection had a button that made the chosen
                 // connection live in the open or focused tab."
@@ -440,6 +447,9 @@ struct TerminalView: View {
                          // is typing a DESTINATION, which is shell-shaped input no matter
                          // what mode the profile happens to carry.
                          strict: !connected || profile.mode == .direct,
+                         // HE TYPES ON A HARDWARE KEYBOARD AND HAD BEEN LOSING WHOLE
+                         // PARAGRAPHS TO A FIELD THAT NEVER TOOK THE CARET.
+                         focusRequest: focusRequest,
                          onSubmit: send)
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)
@@ -633,6 +643,9 @@ struct TerminalView: View {
 
         draft = ""
         append(.you, text, isOutput: profile.mode == .direct)
+        // Straight back to him. Sending is the moment he is most likely to keep typing,
+        // and it is also where `isBusy` flips and the row rebuilds around the field.
+        focusRequest += 1
         isBusy = true
 
         Task {

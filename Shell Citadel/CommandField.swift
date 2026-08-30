@@ -38,6 +38,23 @@ struct CommandField: UIViewRepresentable {
     /// Michael, 2026-08-22: "iphone keyboard needs suggestive text and dictation."
     /// He was typing sentences to me and I had given him a keyboard built for `ls`.
     var strict: Bool
+
+    /// A counter the parent bumps to say "put the caret in here now".
+    ///
+    /// ⚠️ WHY A COUNTER AND NOT A BOOL. Michael, 2026-08-30 06:48, from the iPad:
+    /// "The say something doesnt automatically take focus i have to tap before typing,
+    ///  ive been typing paragraphs then i look down to send and no text"
+    ///
+    /// He is on a hardware keyboard. With no first responder, every keystroke goes
+    /// nowhere — not to a background field, NOWHERE — so a paragraph he has already
+    /// composed is simply gone, and he only finds out when he looks down. That is the
+    /// same class of failure as the two Shell Citadel messages that died in wedged tmux
+    /// processes: his words, destroyed by this side, discovered afterwards.
+    ///
+    /// A Bool cannot express "focus again" once it is already true — the second request
+    /// is not a change and SwiftUI never re-runs. A monotonic counter always changes, so
+    /// every request lands.
+    var focusRequest: Int
     var onSubmit: () -> Void
 
     func makeUIView(context: Context) -> UITextField {
@@ -65,6 +82,20 @@ struct CommandField: UIViewRepresentable {
                         action: #selector(Coordinator.textChanged(_:)),
                         for: .editingChanged)
         return field
+    }
+
+    /// Take the caret, but only when it can actually be taken.
+    ///
+    /// `becomeFirstResponder()` fails silently on a view that is not in a window yet,
+    /// which is exactly where `makeUIView` runs — so this is called from `updateUIView`
+    /// and hops to the next runloop turn, by which point the field is on screen.
+    private func focus(_ field: UITextField, _ coordinator: Coordinator) {
+        guard field.isEnabled else { return }
+        DispatchQueue.main.async {
+            guard field.window != nil, !field.isFirstResponder else { return }
+            field.becomeFirstResponder()
+        }
+        coordinator.lastFocusRequest = focusRequest
     }
 
     /// Applied on creation AND on update, because the mode can change while the app
@@ -104,12 +135,27 @@ struct CommandField: UIViewRepresentable {
         if field.text != text { field.text = text }
         field.placeholder = placeholder
         field.isEnabled = isEnabled
+
+        // ⚠️ ZERO MEANS NEVER TAKE THE CARET BY ITSELF, and that is not a default worth
+        // losing. The dumb terminal has its OWN composer under a live PTY screen, and
+        // there the keystrokes belong to the terminal — a field that grabs first
+        // responder on appearance would swallow everything he types at the shell.
+        // So auto-focus is opt-in: the conversation composer starts at 1, the dumb
+        // terminal's passes 0 and behaves exactly as it did before.
+        guard focusRequest > 0 else { return }
+        if context.coordinator.lastFocusRequest != focusRequest {
+            focus(field, context.coordinator)
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     final class Coordinator: NSObject, UITextFieldDelegate {
         private let parent: CommandField
+        /// The last request number acted on. Anything different is a fresh ask, and
+        /// re-running the body with the same number must NOT re-grab the caret from
+        /// something else he has tapped into.
+        var lastFocusRequest = 0
 
         init(_ parent: CommandField) { self.parent = parent }
 

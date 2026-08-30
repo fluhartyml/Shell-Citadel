@@ -19,6 +19,7 @@
 //
 
 import Foundation
+import UIKit
 import Citadel
 import NIOCore
 
@@ -212,7 +213,7 @@ actor SSHSession {
         // Both apps send through the same tmux session, so without this Claude cannot
         // tell which one he is typing in. Lighthouse sends LH from the phone and Mac
         // from the desk; this is the third.
-        let stamped = "[\(Self.sentStamp()) SC] \(text)"
+        let stamped = "[\(Self.sentStamp()) \(Self.sourceTag)] \(text)"
         let body = Self.shellQuoted(stamped)
         let buffer = "shell-citadel-msg"
         _ = try await run("""
@@ -386,6 +387,27 @@ actor SSHSession {
     }
 
     /// Local time, 24-hour, for the sent-stamp.
+    /// `SC-iPad` / `SC-iPhone`. Michael, 2026-08-30: "Can sc destinguish an iphone or an
+    /// ipad? For the timestamp?"
+    ///
+    /// He runs the same app on both and they are not interchangeable to him: the iPhone
+    /// is what is in his hand away from the desk, the iPad is what he reads long replies
+    /// on. Knowing which one a sentence came from is knowing how much screen he has and
+    /// how easily he can type — and this morning is the case in point, when a reply
+    /// sized for the iPad was unreadable on the phone.
+    ///
+    /// Computed once: the idiom cannot change for the life of the process, and reading it
+    /// per message would be a main-actor hop on every send.
+    static let sourceTag: String = {
+        switch UIDevice.current.userInterfaceIdiom {
+        case .pad:   return "SC-iPad"
+        case .phone: return "SC-iPhone"
+        // Mac Catalyst, Vision, TV, CarPlay, anything Apple adds later. Falls back to the
+        // plain tag rather than inventing a name for a device this app is not shipped on.
+        default:     return "SC"
+        }
+    }()
+
     static func sentStamp(_ date: Date = Date()) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")

@@ -132,6 +132,10 @@ struct DumbTerminalView: View {
                          placeholder: "send a whole line",
                          isEnabled: pty.isRunning,
                          strict: true,
+                         // 0 = never auto-focus. The PTY screen above owns the keyboard
+                         // here; a composer that grabbed first responder on appearance
+                         // would eat everything he types at the shell.
+                         focusRequest: 0,
                          onSubmit: submitLine)
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)

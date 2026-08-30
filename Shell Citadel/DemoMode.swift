@@ -74,15 +74,62 @@ enum DemoMode {
         let delay: Double
     }
 
+    /// ⭐ THE SCRIPT TEACHES THE SETUP. Michael's change, 2026-08-30:
+    /// *"can we use it to teac the user how to open tmux and run claude?"*
+    ///
+    /// It is a better demo than the generic one it replaced, because it does both jobs
+    /// at once. The reviewer still sees every feature working — a command and its
+    /// output, a reply arriving on its own, the catch-up, the picture flow — and a real
+    /// user watching the same thirty seconds learns the exact words they have to type.
+    /// The old script demonstrated the app to someone who already knew what to do with
+    /// it; nobody is in that position on first launch.
+    ///
+    /// ── WHY `screen` AND NOT `tmux` ────────────────────────────────────────────────
+    ///
+    /// The first version of this script taught tmux, and Michael caught it in one
+    /// question: *"should we assume they have tmux installed?"*
+    ///
+    /// We cannot. macOS does not ship tmux — measured on his own Mac, it lives at
+    /// /opt/homebrew/bin/tmux with nothing at /usr/bin/tmux. So a new user types the
+    /// very first command in the tutorial and gets "command not found", at the exact
+    /// moment they have decided to trust the app.
+    ///
+    /// The obvious patch is a `brew install tmux` beat, and he took that apart too:
+    /// *"if we show them in a tytorial then it implies we endorce homebrew."* He is
+    /// right, and the cost is larger than the endorsement. A tutorial that installs
+    /// Homebrew makes THIS app answerable for software it does not ship, cannot fix,
+    /// and never chose — when brew fails, or wants Command Line Tools, or breaks on an
+    /// OS update, the user blames Shell Citadel.
+    ///
+    /// `/usr/bin/screen` is already on every Mac. Same trick — a session that outlives
+    /// the disconnect — with nothing to install and nobody endorsed. tmux still works
+    /// for anyone who has it; the app is an SSH client and does not care. So the last
+    /// beat names it in one line rather than teaching it.
+    ///
+    /// ⚠️ THE COMMANDS HERE ARE REAL AND MUST STAY REAL. Someone will type them. A
+    /// plausible-looking command that does not work is worse than no demo. Every string
+    /// below was verified against a live `screen` session on 2026-08-30, including the
+    /// listing format, which is `PID.name` and a tab before `(Detached)`.
     static let script: [Beat] = [
         .init(source: .system,
-              text: "This is a demonstration. Nothing is connected and nothing is being sent. Enter your own Mac's details in Settings to use it for real.",
+              text: "This is a demonstration. Nothing is connected and nothing is being sent. It walks through the setup once, so the steps are here when you need them.",
               isOutput: false, delay: 0.3),
 
-        .init(source: .you, text: "uptime", isOutput: false, delay: 1.2),
+        .init(source: .system,
+              text: "On your Mac, first: System Settings → General → Sharing → Remote Login, switched on. Then put that Mac's name, your username and your password into Settings here.",
+              isOutput: false, delay: 1.8),
+
+        .init(source: .you, text: "screen -S claude", isOutput: false, delay: 1.6),
+        .init(source: .claude, text: "~ %", isOutput: true, delay: 0.9),
+
+        .init(source: .system,
+              text: "That made a session named claude, using screen, which is already on every Mac. The session belongs to the Mac, not to this app — so it keeps running when you close your phone, lose signal, or walk away.",
+              isOutput: false, delay: 1.6),
+
+        .init(source: .you, text: "claude", isOutput: false, delay: 1.4),
         .init(source: .claude,
-              text: "09:41  up 3 days, 14:22, 2 users, load averages: 1.42 1.51 1.47",
-              isOutput: true, delay: 0.9),
+              text: "Welcome to Claude Code. Type your request, or /help for commands.",
+              isOutput: true, delay: 1.0),
 
         .init(source: .system,
               text: "Listening for replies on ~/.claude-voice/out.txt.",
@@ -93,6 +140,17 @@ enum DemoMode {
               text: "The 1TB external is at 72 percent with 293 gigabytes free. Nothing needs attention today.",
               isOutput: false, delay: 1.4),
 
+        .init(source: .you, text: "📷 rack-label.jpg — 412 KB", isOutput: false, delay: 1.8),
+        .init(source: .claude,
+              text: "That is the service tag on the back of the server. I can read it: it ends 7QX4L2.",
+              isOutput: false, delay: 1.3),
+
+        .init(source: .system,
+              text: "Closing the app now would leave all of that running. Press Control-A then D to step out of the session without stopping it.",
+              isOutput: false, delay: 1.7),
+        .init(source: .claude, text: "[detached from 82263.claude]",
+              isOutput: true, delay: 0.9),
+
         .init(source: .system,
               text: "You were away — catching up on what you missed.",
               isOutput: false, delay: 1.6),
@@ -102,10 +160,15 @@ enum DemoMode {
         .init(source: .system, text: "Caught up. Anything below this is live.",
               isOutput: false, delay: 0.9),
 
-        .init(source: .you, text: "📷 rack-label.jpg — 412 KB", isOutput: false, delay: 1.8),
-        .init(source: .claude,
-              text: "That is the service tag on the back of the server. I can read it: it ends 7QX4L2.",
-              isOutput: false, delay: 1.3),
+        .init(source: .you, text: "screen -r claude", isOutput: false, delay: 1.6),
+        .init(source: .claude, text: "~ %", isOutput: true, delay: 0.9),
+        .init(source: .system,
+              text: "Same session, hours later, nothing lost. That is the whole point of the two commands above. Forgotten the name? screen -ls lists them.",
+              isOutput: false, delay: 1.4),
+
+        .init(source: .system,
+              text: "If you already use tmux, it works exactly the same way here — tmux new -s claude, and tmux attach -t claude. Nothing to install either way.",
+              isOutput: false, delay: 1.6),
 
         .init(source: .system,
               text: "End of demonstration. Everything above was scripted. Open Settings to connect to your own machine.",

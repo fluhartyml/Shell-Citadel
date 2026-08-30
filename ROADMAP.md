@@ -416,3 +416,58 @@ guarantees the pin drop works. The stricter path is to request **reduced** accur
 call `requestTemporaryFullAccuracyAuthorization(withPurposeKey:)` only for the pin — the app then
 genuinely does not hold precision the rest of the time. **The stricter path matches what he asked
 for more literally; the simple path is fewer moving parts. Not decided — his call at build time.**
+
+---
+
+## 📱 THE iPHONE ULTRA REPLACES THE iPAD MINI — his statement, 2026-08-29 13:13
+
+> ***"the iphone ultra will replace my ipad mini"***
+
+**He sharpened the timing himself: *"the ultra comes out in a few weks"* — so this is a layout requirement arriving in WEEKS, not a someday note.** The iPhone Ultra
+(the book-style foldable, expected **~September 2026** alongside the iPhone 18 Pro) has **two
+independent displays** — roughly **7.8" inner** and **5.5" cover**. The iPad mini is 8.3". So the
+inner screen is a mini, and the outer screen is a phone, **in the same device, switching while the
+app is running.**
+
+**And it lands on a role this app already has.** At 12:00 the same day: *"Im going to have my ipad
+mini at my livingroom chair so i can use it as central command."* **Shell Citadel is the central-
+command app**, so it inherits the change.
+
+### What that means for this codebase
+
+**⚠️ There is currently NO adaptive layout in Shell Citadel at all** — verified 2026-08-29, zero
+uses of `horizontalSizeClass`, `verticalSizeClass` or the interface idiom anywhere in the sources.
+Every screen is one layout stretched to whatever it is given. That is survivable on a fixed-size
+phone or iPad and **is not survivable on a device that changes size in your hands.**
+
+**The sanctioned path is size classes, not fold detection.** The fold data — `foldState` and
+`angleDegrees`, plus a built-in-display-count key — exists only as **private framework strings** in
+iOS 27. **Private API is an App Store rejection**, and this app is on the ASC track. So:
+
+- **Design for a dynamic range of sizes** (resizability), and let the size class do the work.
+- **⚠️ There is NO resizable simulator in Xcode 27** — checked 2026-08-29 against
+  `xcrun simctl list devicetypes` on Xcode 27.0 (27A5194q). No `Resizable` type, no fold type; the
+  iPhone list tops out at the 17 series. **The apartment record said to use one; it is not there.**
+- **Test the two size classes instead, which needs no new hardware and no new simulator:**
+  **iPhone 17** (compact width) stands in for the cover screen, and **iPad mini (A17 Pro)** —
+  8.3", against the Ultra's ~7.8" inner — stands in for the unfolded screen. If the layout is
+  driven by size class rather than by device, those two sims prove both Ultra states.
+- **Never special-case "is this a fold."** → [[reference_iphone_fold_adaptive_layout]]
+
+### The shape it probably wants
+
+Following the pattern already chosen for Inkwell Journal's Ultra layout (outer = compact single
+panel, inner = grid):
+
+| Surface | Terminal layout |
+|---|---|
+| **Cover screen (~5.5", compact)** | **One terminal, full screen.** The tab strip stays, but only the focused tab renders. This is the glance-and-type case. |
+| **Inner screen (~7.8", regular)** | Room for **two terminals at once** — the Claude tab and the Pi tab side by side, which is exactly the problem tabs were added to solve on 8/29. |
+| **iPad** | Same regular-width layout, more of it. |
+
+**Do this BEFORE the hardware ships, not after.** Retrofitting adaptivity onto views that assume one
+size is the expensive version, and the geometry work is already here — `Columns × Lines` with
+fit-to-columns is *already* a resizable terminal. **The engine adapts; the chrome does not yet.**
+
+**Not scheduled. Recorded because he said it, and because it is cheaper now than in October.**
+→ [[feedback_design_it_right_first_not_patch_after]]

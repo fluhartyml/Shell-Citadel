@@ -14,8 +14,27 @@
 //  WHY EVERY TAB STAYS IN THE HIERARCHY. SwiftUI destroys @State when a view leaves the
 //  view tree, and TerminalView owns the SSHSession as @State. Rendering only the selected
 //  tab would therefore CLOSE the connection on every tab switch — the exact opposite of
-//  what tabs are for. So all tabs are built in a ZStack and the unselected ones are merely
-//  hidden. Live sessions survive switching, which is the whole point.
+//  what tabs are for. So all tabs are built and the ones not on screen are merely hidden.
+//  Live sessions survive switching, which is the whole point.
+//
+//  ADAPTIVE LAYOUT — added 2026-08-29 for the iPhone Ultra. Michael: "the iphone ultra will
+//  replace my ipad mini" / "the ultra comes out in a few weks." That device has TWO
+//  displays, ~5.5" cover and ~7.8" inner, and it changes size WHILE THE APP IS RUNNING.
+//
+//  So layout is driven by `horizontalSizeClass` and by nothing else:
+//    compact (cover screen, any iPhone) → one terminal, full width.
+//    regular (inner screen, iPad)       → an optional two-pane split.
+//
+//  It is deliberately NOT driven by fold detection. `foldState` and `angleDegrees` are
+//  PRIVATE framework strings in iOS 27, and private API is an App Store rejection — which
+//  this app cannot afford now that it is on the submission track. Size class is what the
+//  real device reports anyway, which is why an iPhone 17 sim and an iPad mini sim prove
+//  both Ultra states with no new hardware and no resizable simulator (there isn't one in
+//  Xcode 27 — checked).
+//
+//  THE FOLD-SAFETY PROPERTY falls out of the rule above: because every tab is always built,
+//  unfolding, folding, rotating or splitting the app NEVER drops a session. The panes only
+//  decide what is visible.
 //
 import SwiftUI
 
@@ -36,8 +55,27 @@ struct TerminalTab: Identifiable, Codable, Equatable {
 
 struct TerminalTabsView: View {
     @AppStorage("terminalTabs") private var storedTabs = Data()
+    /// Remembered across launches, but only ever ACTED on at regular width.
+    @AppStorage("terminalSplit") private var splitEnabled = false
+
+    @Environment(\.horizontalSizeClass) private var widthClass
+
     @State private var tabs: [TerminalTab] = []
     @State private var selection: UUID?
+    /// The second pane's tab when split is showing. Nil until the user puts one there.
+    @State private var companion: UUID?
+    /// Which pane a tap on a chip fills. Ignored unless the split is showing.
+    @State private var focusedPane: Pane = .primary
+
+    private enum Pane { case primary, secondary }
+
+    /// The split is a REGULAR-WIDTH affordance. On the Ultra's cover screen — or any
+    /// iPhone — there is no room for two terminals, so the stored preference is simply not
+    /// applied. Nothing is turned off and nothing is forgotten; folding the phone shut and
+    /// opening it again returns to the same two panes.
+    private var showingSplit: Bool {
+        widthClass == .regular && splitEnabled && tabs.count > 1 && companion != nil
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,42 +83,111 @@ struct TerminalTabsView: View {
             // exists made the second tab impossible to create.
             tabBar
 
-            ZStack {
-                ForEach(tabs) { tab in
-                    // The first tab keeps the ORIGINAL storage key so an existing install
-                    // opens already pointed at his Mac rather than blank.
-                    TerminalView(profileKey: tab.id == tabs.first?.id ? "connectionProfile"
-                                                                     : tab.profileKey)
-                        .opacity(tab.id == selection ? 1 : 0)
-                        .allowsHitTesting(tab.id == selection)
-                        // Keep it laid out but out of the accessibility tree, so
-                        // VoiceOver does not read three hidden terminals.
-                        .accessibilityHidden(tab.id != selection)
+            if showingSplit {
+                HStack(spacing: 0) {
+                    pane(.primary)
+                    Divider()
+                    pane(.secondary)
                 }
+            } else {
+                pane(.primary)
             }
         }
         .onAppear(perform: restore)
         .onChange(of: tabs) { _, _ in persist() }
+        .onChange(of: tabs) { _, new in
+            // A closed tab must not stay wired to a pane.
+            if let c = companion, !new.contains(where: { $0.id == c }) { companion = nil }
+        }
+    }
+
+    /// Every tab is built every time, in both layouts. Only visibility changes — which is
+    /// why nothing disconnects when the device folds, rotates, or splits.
+    private func pane(_ which: Pane) -> some View {
+        let shown = which == .primary ? selection : companion
+        let isFocused = showingSplit && which == focusedPane
+        return ZStack {
+            ForEach(tabs) { tab in
+                // The first tab keeps the ORIGINAL storage key so an existing install
+                // opens already pointed at his Mac rather than blank.
+                TerminalView(profileKey: tab.id == tabs.first?.id ? "connectionProfile"
+                                                                 : tab.profileKey)
+                    .opacity(tab.id == shown ? 1 : 0)
+                    .allowsHitTesting(tab.id == shown)
+                    // Keep it laid out but out of the accessibility tree, so VoiceOver
+                    // does not read every hidden terminal.
+                    .accessibilityHidden(tab.id != shown)
+            }
+        }
+        .overlay(alignment: .top) {
+            // Only while split, and only a hairline: which pane a tab tap will fill has to
+            // be visible, but a terminal is not the place for chrome.
+            if isFocused {
+                Rectangle()
+                    .fill(Color.accentColor)
+                    .frame(height: 2)
+                    .accessibilityHidden(true)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if showingSplit { focusedPane = which }
+        }
     }
 
     // MARK: - Tab bar
 
     private var tabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(tabs) { tab in
-                    tabChip(tab)
+        HStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(tabs) { tab in
+                        tabChip(tab)
+                    }
+                    addButton
                 }
-                addButton
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            // Regular width only. On the cover screen the button would be an offer the
+            // screen cannot honour, and an offer you cannot accept is worse than no offer.
+            if widthClass == .regular && tabs.count > 1 {
+                splitButton
+                    .padding(.trailing, 8)
+            }
         }
         .background(.bar)
     }
 
+    private var splitButton: some View {
+        Button {
+            if showingSplit {
+                splitEnabled = false
+                focusedPane = .primary
+            } else {
+                splitEnabled = true
+                // Open onto a tab that is not already in the first pane, so the split
+                // shows two different terminals rather than the same one twice.
+                if companion == nil || companion == selection {
+                    companion = tabs.first(where: { $0.id != selection })?.id
+                }
+                focusedPane = .secondary
+            }
+        } label: {
+            Image(systemName: showingSplit
+                  ? "rectangle.split.2x1.fill"
+                  : "rectangle.split.2x1")
+                .font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(showingSplit ? "Show one terminal" : "Show two terminals side by side")
+    }
+
     private func tabChip(_ tab: TerminalTab) -> some View {
-        let isSelected = tab.id == selection
+        // "Selected" means on screen, which is two tabs while split.
+        let isSelected = tab.id == selection || (showingSplit && tab.id == companion)
         return HStack(spacing: 5) {
             Text(tab.name)
                 .font(TerminalFont.mono(.footnote))
@@ -101,7 +208,19 @@ struct TerminalTabsView: View {
         .background(isSelected ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.12),
                     in: RoundedRectangle(cornerRadius: 7))
         .contentShape(RoundedRectangle(cornerRadius: 7))
-        .onTapGesture { selection = tab.id }
+        .onTapGesture {
+            // A chip fills the pane you are looking at. With no split there is only one
+            // pane, so this is the old behaviour unchanged.
+            if showingSplit && focusedPane == .secondary {
+                companion = tab.id
+            } else {
+                selection = tab.id
+                // Never show the same terminal twice — move the other pane aside instead.
+                if showingSplit && companion == tab.id {
+                    companion = tabs.first(where: { $0.id != tab.id })?.id
+                }
+            }
+        }
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 

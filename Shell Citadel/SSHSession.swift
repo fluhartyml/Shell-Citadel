@@ -216,9 +216,32 @@ actor SSHSession {
         let stamped = "[\(Self.sentStamp()) \(Self.sourceTag)] \(text)"
         let body = Self.shellQuoted(stamped)
         let buffer = "shell-citadel-msg"
+        // ⚠️ `-p` IS LOAD-BEARING: IT IS BRACKETED PASTE, AND WITHOUT IT THE FRONT OF A
+        // LONG MESSAGE IS LOST.
+        //
+        // Michael, 2026-08-30 09:21, sent a 455-character line. It arrived on the Mac
+        // missing its first EIGHTEEN characters — the whole "[09:21 SC-iPad] " tag plus
+        // two letters — while all 17 repeats at the end survived. Losing the tag then
+        // defeated the echo guard in capture-prompt.py, so the Mac read it as
+        // desk-typed and echoed his own words back at him: one bug, two symptoms.
+        //
+        // MEASURED, NOT GUESSED. The same command was run against a throwaway tmux
+        // session whose only job was `cat > file`: 455 bytes in, 456 out (the newline),
+        // front intact. So tmux delivers it perfectly and the loss is in the RECEIVING
+        // program.
+        //
+        // Cause: without `-p`, `paste-buffer` replays the buffer as ordinary keystrokes.
+        // A TUI that has bracketed paste enabled is waiting for the ESC[200~ marker and
+        // handles a raw burst differently — the leading characters arrive before its
+        // input handling settles and are dropped. `-p` wraps the payload in the
+        // bracketed-paste markers, so the far end takes it as ONE block instead of a
+        // race of individual keys.
+        //
+        // → the same failure family as the two messages that died in wedged tmux
+        //   processes on 2026-08-29: delivery that reports success and loses content.
         _ = try await run("""
             \(tmux) set-buffer -b \(buffer) -- \(body) \
-              && \(tmux) paste-buffer -d -b \(buffer) -t \(session) \
+              && \(tmux) paste-buffer -d -p -b \(buffer) -t \(session) \
               && \(tmux) send-keys -t \(session) Enter
             """)
     }

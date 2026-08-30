@@ -67,10 +67,18 @@ struct CommandField: UIViewRepresentable {
         // His desktop terminal face, not the system mono — the whole point is that what he
         // types here looks like what he types in Terminal.app. Falls back to the system
         // monospaced font if registration ever fails, so the field is never unreadable.
-        let size = UIFont.preferredFont(forTextStyle: .body).pointSize
-        field.font = UIFont(name: TerminalFont.regular, size: size)
-            ?? .monospacedSystemFont(ofSize: size, weight: .regular)
-        field.adjustsFontForContentSizeCategory = true
+        // ⚠️ HIS SIZE, NOT DYNAMIC TYPE — AND THIS IS THE FIELD HE ACTUALLY JUDGES THE
+        // APP BY. Michael, 2026-08-30 09:53: "the font where i am typing is where i see
+        // and think you arnt changing the font because it never changed here."
+        //
+        // He is right, and I had fixed the wrong half. The transcript was moved onto his
+        // configured `fontSize` minutes earlier and visibly changed; this line kept
+        // sizing itself from `preferredFont(forTextStyle: .body)`, so the one piece of
+        // text he looks at while typing stayed exactly as it was. From where he sits,
+        // nothing had happened. Three rounds of "the font is not right" were about this
+        // field.
+        applyFont(to: field)
+        field.adjustsFontForContentSizeCategory = false
         // The field must never DRIVE the layout's width. A UITextField's intrinsic
         // width grows with its content, and left alone it widened the whole column —
         // which stretched the transcript above it and cost those lines their wrapping.
@@ -96,6 +104,14 @@ struct CommandField: UIViewRepresentable {
             field.becomeFirstResponder()
         }
         coordinator.lastFocusRequest = focusRequest
+    }
+
+    /// One place, so creation and update cannot disagree. Floor of 11pt matches the
+    /// transcript's: a slider dragged to nothing must not make his own typing invisible.
+    private func applyFont(to field: UITextField) {
+        let size = max(11, TerminalAppearance.shared.fontSize)
+        field.font = UIFont(name: TerminalFont.regular, size: size)
+            ?? .monospacedSystemFont(ofSize: size, weight: .regular)
     }
 
     /// Applied on creation AND on update, because the mode can change while the app
@@ -130,6 +146,8 @@ struct CommandField: UIViewRepresentable {
 
     func updateUIView(_ field: UITextField, context: Context) {
         applyTraits(to: field)
+        // So dragging the size slider moves this field too, live, like everything else.
+        applyFont(to: field)
         // Only write back when it actually differs, so the caret is not reset on
         // every keystroke as SwiftUI re-runs the body.
         if field.text != text { field.text = text }

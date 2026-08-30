@@ -556,8 +556,8 @@ Describe → wait → code → wait → install. Nothing here gets started witho
 |---|---|---|
 | 1 | **Scrolling / text selection on the iPad** | ✅ **DONE** `abf2c72` — proved on his iPad, by him: scrolled back, selected my text, copied it, sent it as the evidence |
 | 2 | **Waiting-for-response indicator — inconsistent** | ✅ **DONE** — relocated to a fixed status strip, his design |
-| 3 | **Screen colour preferences, per device** | not started |
-| 4 | **Two-tone chat — his text darker** | not started |
+| 3 | **Screen colour preferences, per device** | ✅ **DONE** — background follows system; stores were already per-device |
+| 4 | **Two-tone chat — his text darker** | ✅ **DONE** — one dim constant, appearance-aware |
 
 **Note the shape of his ordering: the two BUG FIXES come first, then the preference, then the
 enhancement — and he named the last one an "enhancement" himself.** Do not let a nicer-sounding

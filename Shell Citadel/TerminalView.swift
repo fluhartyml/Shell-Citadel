@@ -16,6 +16,16 @@ import PhotosUI
 import SwiftUI
 
 struct TerminalView: View {
+    /// ⚠️ THE TRANSCRIPT HAS TO READ HIS FONT SIZE, and for a long time it did not.
+    /// Michael, 2026-08-30, repeatedly and finally: "And fix the font for christ sake."
+    ///
+    /// The chat view was on `TerminalFont.mono(.callout)` — a Dynamic Type size, about
+    /// 16pt — while his configured `fontSize` of 36 was read only by the dumb terminal.
+    /// So the slider he was given did nothing to the screen he actually reads, and the
+    /// app looked nothing like the Terminal window it is meant to mirror. Chasing the
+    /// TYPEFACE (NF vs NFM) was the wrong hunt: the letters are identical between those
+    /// two and only the icon widths differ. It was the SIZE the whole time.
+    @ObservedObject private var appearance = TerminalAppearance.shared
     @State private var lines: [TranscriptLine] = []
     @State private var draft = ""
     @State private var showingAbout = false
@@ -276,7 +286,7 @@ struct TerminalView: View {
                     ForEach(lines) { line in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(line.prompt)
-                                .font(TerminalFont.mono(.callout))
+                                .font(transcriptFont)
                                 .foregroundStyle(.secondary)
                             Text(line.text)
                                 .textSelection(.enabled)
@@ -292,7 +302,7 @@ struct TerminalView: View {
                                 // transcript is the tell that it is a chat window wearing
                                 // terminal clothes. A terminal is monospaced throughout,
                                 // including its own notices.
-                                .font(TerminalFont.mono(.callout))
+                                .font(transcriptFont)
                             Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1025,6 +1035,12 @@ struct TerminalView: View {
     /// "i want the background to be system light or dark mode". Leaving it unset is what
     /// makes that true — the transcript sits on the system background and follows the
     /// device. Painting it would break exactly what he asked for.
+    /// His size, his face. Floor of 11pt so a slider dragged to nothing cannot make the
+    /// conversation unreadable; no ceiling, because 36 is his and it is deliberate.
+    private var transcriptFont: Font {
+        .custom(TerminalFont.regular, size: max(11, appearance.fontSize))
+    }
+
     private func colorFor(_ source: TranscriptLine.Source) -> Color {
         let dark = colorScheme == .dark
         switch source {

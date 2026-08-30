@@ -106,6 +106,16 @@ enum DemoMode {
     /// for anyone who has it; the app is an SSH client and does not care. So the last
     /// beat names it in one line rather than teaching it.
     ///
+    /// ⚠️ AND NOTHING HERE MAY DESCRIBE MICHAEL'S OWN SETUP AS IF IT WERE EVERYONE'S.
+    /// He caught this one too, 2026-08-30: *"is claude listen txt on all claudes or is
+    /// that specific to my setup"* — specific to his. `~/.claude-voice/out.txt` is not a
+    /// Claude Code feature; it exists because he and Claude built the script and hooks
+    /// that write it. No stock install has that directory. The beat used to name that
+    /// exact path, so a stranger watching the demo was told to listen to a file they do
+    /// not have and never will, with nothing explaining why it stayed empty. It now
+    /// describes what the feature DOES and names the setting instead. Same fault as his
+    /// name appearing in a button label earlier the same day.
+    ///
     /// ⚠️ THE COMMANDS HERE ARE REAL AND MUST STAY REAL. Someone will type them. A
     /// plausible-looking command that does not work is worse than no demo. Every string
     /// below was verified against a live `screen` session on 2026-08-30, including the
@@ -132,8 +142,8 @@ enum DemoMode {
               isOutput: true, delay: 1.0),
 
         .init(source: .system,
-              text: "Listening for replies on ~/.claude-voice/out.txt.",
-              isOutput: false, delay: 0.8),
+              text: "Watching a file on the Mac for new lines. Settings calls it Spoken text — point it at any file a program appends plain sentences to.",
+              isOutput: false, delay: 0.9),
 
         .init(source: .you, text: "which disks are nearly full?", isOutput: false, delay: 1.6),
         .init(source: .claude,

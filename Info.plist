@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    Info.plist — Shell Citadel
+
+    THIS FILE EXISTS FOR EXACTLY ONE KEY, and it is worth saying why so nobody deletes it
+    while tidying up.
+
+    Every other Info.plist entry in this project is set as an INFOPLIST_KEY_* build
+    setting in project.pbxproj, which is the modern shape and keeps the settings in one
+    place. That mechanism can only express FLAT keys — `INFOPLIST_KEY_Foo` becomes `Foo`.
+
+    `NSLocationTemporaryUsageDescriptionDictionary` is a DICTIONARY. It maps a purpose key
+    to the sentence iOS shows when an app asks to borrow full location accuracy for one
+    operation, and there is no build-setting spelling for a nested value. So this file is
+    the base plist, GENERATE_INFOPLIST_FILE stays YES, and the flat keys are merged in on
+    top of it at build time.
+
+    ⚠️ The purpose key below MUST match `LocationStamp.pinDropPurposeKey`. A mismatch does
+    not crash and does not warn — the request just returns denied, silently, which is the
+    exact failure shape this project has been bitten by before.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>PinDrop</key>
+		<string>Dropping a pin needs your exact location for this one map picture. Your normal messages only carry your general area, and your location is never sent anywhere except your own Mac.</string>
+	</dict>
+</dict>
+</plist>

@@ -157,13 +157,27 @@ struct TerminalView: View {
                 Text("This tab is connected to \(profile.name.isEmpty ? profile.host : profile.name). Switching closes that session. Other tabs are unaffected.")
             }
             .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+
+                // ONE low-power fix per foregrounding, so the cached position the message
+                // stamp reads is from this trip to the phone rather than the last one.
+                // NOT a timer and NOT per message — `startUpdatingLocation` would hold the
+                // radio open for the life of the session. See [[LocationStamp]].
+                LocationStamp.shared.refresh()
+
                 // iOS suspends a backgrounded app within seconds, so the SSH connection
                 // does not survive a trip to another app or a locked screen. The tmux
                 // session on the Mac does — that is the whole point of attach mode — so
                 // coming back should just pick the conversation up.
-                guard phase == .active, !connected, !isBusy,
+                guard !connected, !isBusy,
                       profile.isComplete, !password.isEmpty else { return }
                 connect()
+            }
+            .task {
+                // Asked once, on first appearance, and never again — a permission dialog
+                // that reappears is how an app gets denied permanently.
+                LocationStamp.shared.requestAuthorizationIfNeeded()
+                LocationStamp.shared.refresh()
             }
         }
     }
@@ -314,11 +328,23 @@ struct TerminalView: View {
                 } label: {
                     Label("Choose Photo", systemImage: "photo.on.rectangle")
                 }
+                // THE DELIBERATE HALF OF THE LOCATION FEATURE. Michael, 2026-08-28 07:29:
+                // "i want a map pin snapshot in the plus to drop a location pin".
+                //
+                // Precision is asked for HERE and nowhere else, because he asked for it by
+                // tapping. Every other message runs on the coarse cached fix. See
+                // [[LocationStamp]] for why that split is his design and not a shortcut.
+                Divider()
+                Button {
+                    dropPin()
+                } label: {
+                    Label("Drop a Pin", systemImage: "mappin.and.ellipse")
+                }
             } label: {
                 Image(systemName: "plus.circle.fill").font(.title2)
             }
             .disabled(!connected || isBusy)
-            .accessibilityLabel("Send a picture")
+            .accessibilityLabel("Send a picture or a location")
 
             // THE PROMPT IS NOT WELCOME IN THIS ROW ON A PHONE.
             //
@@ -555,7 +581,20 @@ struct TerminalView: View {
                 case .attach:
                     // Nothing comes back here — the reply arrives on the voice channel,
                     // whenever the session gets round to answering.
-                    try await session.send(text)
+                    //
+                    // THE SILENT STAMP RIDES ALONG HERE, and only here. Michael, 2026-08-28:
+                    // "an undisclosed gps location stamp imbeded in every message sent from
+                    // human to claude in citadel". It is appended to what GOES UP, never to
+                    // what is drawn in his bubble — `append(.you, text)` above is untouched,
+                    // which is what "undisclosed" meant.
+                    //
+                    // Direct mode deliberately gets NOTHING: those are shell commands run on
+                    // a machine, not sentences said to Claude, and a coordinate glued to
+                    // `ls -la` would be corruption rather than metadata.
+                    //
+                    // Empty string when there is no fix — a message must never be held up
+                    // or altered because location was unavailable.
+                    try await session.send(text + LocationStamp.shared.messageSuffix())
                 }
             } catch {
                 append(.system, Diagnosis.sentence(for: error, while: .sending))
@@ -692,6 +731,58 @@ struct TerminalView: View {
                 try await session.send("📷 I sent you a picture: \(path)")
             } catch {
                 append(.system, Diagnosis.sentence(for: error, while: .listening))
+            }
+            isBusy = false
+        }
+    }
+
+    /// A · THE PIN DROP. A fresh precise fix, a rendered map, and the picture goes to
+    /// BOTH places he asked for. Michael, 2026-08-29 22:43:
+    /// "The snapshot goes in the thread and photo album" — the thread for Claude, the
+    /// album for him.
+    ///
+    /// ORDER MATTERS AND IT IS DELIBERATE: the upload to the Mac happens FIRST, and the
+    /// photo library save is allowed to fail without taking the pin drop with it. If he
+    /// declines Photos access, or the save fails, the coordinate and the map still
+    /// reached Claude — which is the half that does work. The reverse order would let a
+    /// permission dialog swallow the message.
+    private func dropPin() {
+        guard connected, !isBusy else { return }
+        isBusy = true
+        Task {
+            do {
+                let fix = try await LocationStamp.shared.preciseFix()
+                let image = try await LocationStamp.snapshot(at: fix.coordinate)
+                guard let data = PhotoSend.prepare(image) else {
+                    throw LocationStamp.Failure.snapshotFailed
+                }
+
+                let name = LocationStamp.filename()
+                let path = try await session.upload(data, filename: name)
+
+                // PRECISE here, unlike the message stamp. His ruling, 2026-08-28 07:44:
+                // "Digests and threads have top secret clearance so they can see precise
+                // accuracy if it happens on the pin drop." Rounding this one would throw
+                // away the exact thing he tapped the button to get.
+                let c = fix.coordinate
+                let coords = String(format: "%.6f, %.6f", c.latitude, c.longitude)
+
+                // The receipt on his side, before it is sent — the same rule as a
+                // photograph. A pin that vanishes into a conversation is one he cannot
+                // later prove he dropped.
+                append(.you, "📍 \(coords) — \(data.count / 1024) KB")
+                try await session.send("📍 I dropped a pin: \(coords)\n\(path)")
+
+                do {
+                    try await LocationStamp.saveToPhotoLibrary(image)
+                } catch {
+                    // Said, not swallowed. He asked for the album copy specifically, so
+                    // silently not making one would be a lie of omission.
+                    append(.system, "Sent, but not saved to Photos: \(error.localizedDescription)")
+                }
+            } catch {
+                append(.system, (error as? LocalizedError)?.errorDescription
+                       ?? Diagnosis.sentence(for: error, while: .sending))
             }
             isBusy = false
         }

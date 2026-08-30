@@ -13,13 +13,62 @@
 	  NSPrivacyTracking = false, and NSPrivacyTrackingDomains is deliberately EMPTY.
 	  There is nothing to list. A photograph taken in this app goes over the user's own
 	  SSH connection to the user's own Mac and is never written to the photo library.
+
+	  ── LOCATION IS DECLARED BELOW, AND THAT IS DELIBERATE ────────────────────────
+	  Added 2026-08-30 with the pin drop and the message stamp.
+
+	  It is tempting to leave this empty on the reasoning that the data only ever goes
+	  to the user's own computer. Apple's definition does not work that way: "collect"
+	  means transmitted off the device, and the user's Mac is off the device. The
+	  feature was described as an "undisclosed" stamp, and undisclosed can mean NOT
+	  SHOWN IN THE MESSAGE BUBBLE without meaning NOT DECLARED TO APPLE. Those are
+	  compatible, and only the first one is a design choice.
+
+	  Undeclared location is one of the most reliably caught rejections there is.
+
+	  Linked = false: there is no account, no identifier and no server, so there is
+	  nothing for a coordinate to be linked TO. Tracking = false: it is never combined
+	  with data from other companies, because it never reaches another company.
+
+	  ⚠️ THE PHOTO-LIBRARY SENTENCE ABOVE IS STILL TRUE OF PHOTOGRAPHS and is now false
+	  of one thing: a dropped pin's MAP PICTURE is saved to the library, because that
+	  was asked for explicitly ("The snapshot goes in the thread and photo album").
+	  Access is ADD-ONLY — the app cannot read the library. And the saved image carries
+	  NO EXIF coordinates; see LocationStamp.swift.
 	-->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
 	<array/>
 	<key>NSPrivacyCollectedDataTypes</key>
-	<array/>
+	<array>
+		<dict>
+			<!-- The silent stamp on every message: rounded to 2 dp (~1.1 km). -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCoarseLocation</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- The pin drop only, and only when the user taps it. -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePreciseLocation</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
 		<dict>

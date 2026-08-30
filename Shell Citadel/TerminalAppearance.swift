@@ -207,11 +207,23 @@ struct AppearanceSettingsView: View {
             ColorPicker("Background", selection: Binding(
                 get: { appearance.background.color },
                 set: { appearance.background = rgb(from: $0) ?? appearance.background }))
-            Button("Use Michael's Terminal look") { appearance.reset() }
+            // ⚠️ NO NAMES AND NO THIRD PERSON IN SHIPPED TEXT. Michael, 2026-08-30:
+            // "shouldnt use pronouns in the text because i should not be mentioned."
+            // He is right, and it is a shipping problem rather than a style one — a
+            // customer opening Settings was being told about someone else's Mac, by
+            // name. UI copy is SECOND person: "your Terminal", never "his".
+            // Internal comments like this one stay as they are; they are not shipped.
+            Button("Reset to defaults") { appearance.reset() }
         } header: {
             Text("Terminal appearance")
         } footer: {
-            Text("Starts as the profile from his Mac's Terminal — Meslo, green on his dark navy. 85 by 20 is his own Terminal window; 80 by 24 is the classic VT100, and the column count is what gets reported to the far end so full-screen programs draw correctly. With Fit to columns on, the columns set the text size and the slider is switched off — on a fixed screen one determines the other. Change any of it; it applies to every tab.")
+            // ⚠️ SHORT ENOUGH TO FIT. Michael, 2026-08-30 11:57, with a screenshot of it
+            // clipped mid-sentence at "on a fixed": "the text does not fit in the section
+            // neatly." The previous footer ran five lines and the sheet cut it off, which
+            // is worse than saying nothing — a truncated explanation reads as a bug.
+            // Two sentences. The toggle's own subtitle already carries the slider rule,
+            // so it does not need repeating here.
+            Text("Columns and lines set the terminal size reported to the far end. 80 by 24 is the classic VT100.")
         }
         .previewSample(appearance: appearance)
     }

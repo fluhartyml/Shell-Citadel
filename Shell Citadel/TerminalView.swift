@@ -207,6 +207,24 @@ struct TerminalView: View {
                         Button("Connect", action: connect)
                             .disabled(password.isEmpty || isBusy)
                     }
+                    // ITS OPPOSITE, IN THE SAME PLACE. Michael, 2026-08-30, from the iPad:
+                    // "theres no disconnect button on the ipad please put one next to the
+                    // connect button."
+                    //
+                    // He was right that there was nothing: Connect renders only while
+                    // DISCONNECTED, so once the session was up that corner of the toolbar
+                    // was empty and the only way out was to kill the app. A connection you
+                    // can start and cannot stop is a one-way door.
+                    //
+                    // ⚠️ THIS DISCONNECTS THE PHONE, NOT THE WORK. The tmux session on the
+                    // Mac keeps running — that is the whole point of attach mode — so this
+                    // is hanging up, not stopping anything. Nothing is lost and reconnecting
+                    // resumes where the reply channel left off. See [[VoiceMark]].
+                    if connected {
+                        Button("Disconnect", action: disconnect)
+                            .disabled(isBusy)
+                            .tint(.red)
+                    }
                     Button("Demo", action: startDemo)
                 }
             }
@@ -452,6 +470,33 @@ struct TerminalView: View {
     }
 
     // MARK: - Actions
+
+    /// Hang up. Deliberately the plain opposite of `connect()` and nothing more.
+    ///
+    /// ⚠️ IT DOES NOT ASK, AND THAT IS THE POINT. A confirmation dialog would be right
+    /// for something destructive; this destroys nothing. The tmux session on the Mac
+    /// carries on, the reply channel remembers its byte offset, and Connect brings it all
+    /// back. Making him tap twice to hang up would be treating a reversible act as a
+    /// dangerous one.
+    ///
+    /// The PTY is stopped first: in direct mode it holds a channel on the same
+    /// authenticated client, and tearing the client down underneath it leaves a reader
+    /// blocked on a socket nobody is going to write to — the same wedge shape that lost
+    /// two of his messages on 2026-08-29.
+    private func disconnect() {
+        isBusy = true
+        Task {
+            pty.stop()
+            await session.close()
+            connected = false
+            link.markDown()
+            remoteUser = ""
+            remoteHost = ""
+            workingDirectory = ""
+            append(.system, "Disconnected. Your session on the Mac is still running — tap Connect to come back to it.")
+            isBusy = false
+        }
+    }
 
     private func connect() {
         isBusy = true

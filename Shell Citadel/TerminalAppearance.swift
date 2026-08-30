@@ -50,7 +50,10 @@ final class TerminalAppearance: ObservableObject {
     // when `fitToColumns` is on, the column count is authoritative and the point size is
     // derived from the available width. Turn it off and the slider wins, and the column
     // count becomes whatever actually fits — reported back so it is never a mystery.
-    @AppStorage("term.cols") var cols: Int = 84
+    // 85, his number, given 2026-08-30 09:05: "85x20 green nerd font". The previous 84
+    // was measured off his Terminal.app title bar on the 29th; he has since said 85, and
+    // his number wins over my measurement of his window.
+    @AppStorage("term.cols") var cols: Int = 85
     @AppStorage("term.rows") var rows: Int = 20
     @AppStorage("term.fitToColumns") var fitToColumns: Bool = true
     @AppStorage("term.text") private var textData = Data()
@@ -67,6 +70,59 @@ final class TerminalAppearance: ObservableObject {
     }
 
     var font: Font { .custom(TerminalFont.regular, size: fontSize) }
+
+    // ── TWO TONES OFF ONE COLOUR ────────────────────────────────────────────────
+    // Michael, 2026-08-30 07:12: "i need the text from me to be a darker shade than the
+    // text from you", refined at 09:06: "i want the gren from me to be darker and text
+    // from you to be lighter".
+    //
+    // ⚠️ BOTH ARE DERIVED FROM `text`, NEVER HARD-CODED. He sets the terminal colour
+    // himself, so "darker" has to mean darker THAN WHATEVER HE CHOSE — a fixed pair of
+    // greens would fight his palette and would be wrong the moment he changed it.
+    //
+    // Done in HSB so hue and saturation are untouched and only brightness moves: the two
+    // lines stay recognisably the same colour, which is the point. Two different hues
+    // would read as two different meanings rather than two speakers.
+
+    /// ⚠️ ONE CONSTANT, APPLIED ZERO ONE OR TWO TIMES. Michael, 2026-08-30 09:18:
+    /// "you and peercentages is opening a can of worms" — and he is right, a table of four
+    /// hand-tuned percentages is four things to be wrong about and nothing to reason from.
+    ///
+    /// So there is a single dim step. Whichever line should recede gets it once more than
+    /// the other, and a light background gets it once more again because his green is a
+    /// bright colour and bright is unreadable on white.
+    ///
+    ///                     Claude      Michael
+    ///   dark background   base        base·d
+    ///   light background  base·d      base·d²
+    ///
+    /// His rule is preserved in both — his own lines are always the dimmer of the pair —
+    /// and there is exactly ONE number to change if it is wrong.
+    static let dim = 0.6
+
+    /// His own lines. Always one step dimmer than Claude's, so scrolling back, his words
+    /// recede and the answers stand out.
+    func mineColor(dark: Bool) -> Color {
+        Self.shift(text.color, brightness: dark ? Self.dim : Self.dim * Self.dim)
+    }
+
+    /// Claude's lines. Full strength on a dark background; stepped down once on a light
+    /// one, because the green he chose was chosen against near-black.
+    func theirsColor(dark: Bool) -> Color {
+        Self.shift(text.color, brightness: dark ? 1 : Self.dim)
+    }
+
+    /// Multiply brightness in HSB, clamped, so hue and saturation are untouched and the
+    /// two lines stay recognisably one colour. Two hues would read as two meanings rather
+    /// than two speakers. Returns the colour unchanged if it cannot be read as RGB at all,
+    /// which is safer than returning something invented.
+    private static func shift(_ color: Color, brightness factor: Double) -> Color {
+        var h: CGFloat = 0, sat: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard UIColor(color).getHue(&h, saturation: &sat, brightness: &b, alpha: &a) else {
+            return color
+        }
+        return Color(hue: h, saturation: sat, brightness: min(1, max(0, b * factor)), opacity: a)
+    }
 
     /// Meslo is monospaced, so one glyph's advance is the whole story. Measured once from
     /// the real font rather than assumed, because a wrong ratio silently misreports the

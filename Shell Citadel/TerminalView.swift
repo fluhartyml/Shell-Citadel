@@ -77,6 +77,10 @@ struct TerminalView: View {
     // its first tab already configured instead of forgetting his Mac.
     @AppStorage private var storedProfile: Data
     @Environment(\.scenePhase) private var scenePhase
+    /// Which pair of tones to use. The app follows the system appearance by his ruling
+    /// ("i want the background to be system light or dark mode"), so the text has to
+    /// follow it too — a colour picked against near-black is unreadable on white.
+    @Environment(\.colorScheme) private var colorScheme
 
     init(profileKey: String = "connectionProfile") {
         _storedProfile = AppStorage(wrappedValue: Data(), profileKey)
@@ -276,7 +280,12 @@ struct TerminalView: View {
                                 .foregroundStyle(.secondary)
                             Text(line.text)
                                 .textSelection(.enabled)
-                                .foregroundStyle(line.source == .system ? .secondary : .primary)
+                                // TWO TONES, ONE COLOUR. His lines darker, Claude's
+                                // lighter, both derived from the terminal colour he set
+                                // — see TerminalAppearance.mineColor / theirsColor.
+                                // `.system` stays neutral grey on purpose: app notices
+                                // are neither of them speaking.
+                                .foregroundStyle(colorFor(line.source))
                                 // ALL ONE FACE. Michael, 2026-08-29, holding the app up
                                 // beside his Mac terminal: "the font is different." He is
                                 // right — mixing a proportional face into a terminal
@@ -364,7 +373,17 @@ struct TerminalView: View {
             }
             Spacer(minLength: 0)
         }
-        .font(.caption)
+        // ⚠️ MESLO, NOT THE SYSTEM FACE. Michael, 2026-08-30 09:09: "the font is not
+        // nerdy." I shipped this strip on `.font(.caption)` — the system font — which put
+        // "Connected" and the waiting clock in a different typeface from every other line
+        // on screen.
+        //
+        // The rule was already written down, in the transcript, from the last time he
+        // caught it: "ALL ONE FACE. Michael, 2026-08-29: 'the font is different.' He is
+        // right — mixing a proportional face into a terminal transcript is the tell that
+        // it is a chat window wearing terminal clothes." A status strip is not an
+        // exception to that; it is the most visible line in the app.
+        .font(TerminalFont.mono(.caption))
         .padding(.horizontal, 12)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1000,6 +1019,19 @@ struct TerminalView: View {
     private func endDemo() {
         isDemo = false
         lines.removeAll()
+    }
+
+    /// ⚠️ THE BACKGROUND IS DELIBERATELY NOT SET HERE. Michael, 2026-08-30 09:05:
+    /// "i want the background to be system light or dark mode". Leaving it unset is what
+    /// makes that true — the transcript sits on the system background and follows the
+    /// device. Painting it would break exactly what he asked for.
+    private func colorFor(_ source: TranscriptLine.Source) -> Color {
+        let dark = colorScheme == .dark
+        switch source {
+        case .you:    return TerminalAppearance.shared.mineColor(dark: dark)
+        case .claude: return TerminalAppearance.shared.theirsColor(dark: dark)
+        case .system: return .secondary
+        }
     }
 
     private func append(_ source: TranscriptLine.Source, _ text: String, isOutput: Bool = false) {

@@ -418,6 +418,16 @@ struct TerminalView: View {
     /// meaningful while connected.
     private var statusStrip: some View {
         HStack(spacing: 6) {
+            // ⚠️ ONE LINE, EVERYTHING AT ONCE — his layout, 2026-08-31 17:44:
+            // "it should be lightbulb status waiting for reply and countdown them
+            // microphone them speaker in one line."
+            //
+            // ⚠️ AND IT FIXES A CONTRADICTION THIS FILE HAD BEEN CARRYING. The comment
+            // above says "Waiting is layered ON TOP of that, never instead of it" — and
+            // the code did the opposite, replacing the connection status with the
+            // countdown in an else-if. So while waiting, the one indicator that says
+            // whether the app is alive vanished. He asked for both and was describing
+            // the behaviour that was already documented and never built.
             if isDemo {
                 // A THIRD STATE, deliberately not green and not red. Green would be a lie
                 // and red reads as a fault. Orange says "this is not real" without
@@ -426,18 +436,37 @@ struct TerminalView: View {
                     .overlay(Circle().stroke(.primary.opacity(0.25), lineWidth: 0.5))
                 Text(DemoMode.statusLabel)
                     .foregroundStyle(.orange)
-            } else if let since = waitingSince {
-                // HIS COLOUR, HIS MEANING: "waiting for message is yellow".
-                Circle().fill(.yellow).frame(width: 9, height: 9)
-                    .overlay(Circle().stroke(.primary.opacity(0.25), lineWidth: 0.5))
-                WaitingIndicator(since: since)
             } else {
                 LinkLightView(light: link)
                 Text(connected ? "Connected" : "Not connected")
                     .foregroundStyle(connected ? .green : .secondary)
             }
+
+            // LAYERED, NOT INSTEAD OF.
+            // HIS COLOUR, HIS MEANING: "waiting for message is yellow".
+            if let since = waitingSince {
+                Circle().fill(.yellow).frame(width: 9, height: 9)
+                    .overlay(Circle().stroke(.primary.opacity(0.25), lineWidth: 0.5))
+                WaitingIndicator(since: since)
+            }
+
             Spacer(minLength: 0)
 
+                // ⚠️ RED MUTED, GREEN LIVE — the same colour language as the speaker
+                // beside it, so the pair reads as a pair. His, 17:25.
+                //
+                // ⚠️ AND IT DOES NOT ARM ITSELF. I argued that it should, and he
+                // overruled it, 17:31: "the app is not armed to go hands free untill i
+                // tap both the speaker on and the microphone." A terminal that starts
+                // listening the moment it opens is a microphone nobody asked for.
+                Button {
+                    dictation.toggle()
+                } label: {
+                    Image(systemName: dictation.isListening ? "mic.fill" : "mic.slash")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(dictation.isListening ? .green : .red)
+                .accessibilityLabel(dictation.isListening ? "Stop listening" : "Listen and send what you say")
             // ⚠️ MUTE LIVES HERE AND NOT IN THE `+` MENU — his call and mine, 2026-08-31
             // 17:09: "the main screen is getting cluttered", then "I agree the plus is
             // not a good fit."
@@ -480,22 +509,6 @@ struct TerminalView: View {
                 // green live — so the pair will read as a pair.
                 .foregroundStyle(spoken.isEnabled ? .green : .red)
                 .accessibilityLabel(spoken.isEnabled ? "Mute spoken output" : "Speak output aloud")
-
-                // ⚠️ RED MUTED, GREEN LIVE — the same colour language as the speaker
-                // beside it, so the pair reads as a pair. His, 17:25.
-                //
-                // ⚠️ AND IT DOES NOT ARM ITSELF. I argued that it should, and he
-                // overruled it, 17:31: "the app is not armed to go hands free untill i
-                // tap both the speaker on and the microphone." A terminal that starts
-                // listening the moment it opens is a microphone nobody asked for.
-                Button {
-                    dictation.toggle()
-                } label: {
-                    Image(systemName: dictation.isListening ? "mic.fill" : "mic.slash")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(dictation.isListening ? .green : .red)
-                .accessibilityLabel(dictation.isListening ? "Stop listening" : "Listen and send what you say")
             }
         }
         // Live words as they are heard. Mirroring into the composer rather than a
@@ -514,7 +527,7 @@ struct TerminalView: View {
         // right — mixing a proportional face into a terminal transcript is the tell that
         // it is a chat window wearing terminal clothes." A status strip is not an
         // exception to that; it is the most visible line in the app.
-        .font(TerminalFont.mono(.caption))
+        .font(TerminalFont.mono(.caption2))
         .padding(.horizontal, 12)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)

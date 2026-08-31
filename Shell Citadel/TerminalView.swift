@@ -39,6 +39,9 @@ struct TerminalView: View {
     /// The MEASURED half of the connection state. `connected` is a belief; this is a
     /// claim about the last ten seconds. See [[LinkLight]].
     @State private var link = LinkLight()
+
+    /// Speech, so the status strip can carry a mute. See the button below.
+    @ObservedObject private var spoken = SpokenOutput.shared
     /// Running the scripted demonstration instead of a connection. See [[DemoMode]] —
     /// this exists for App Review, who have no Mac of their own to connect to.
     @State private var isDemo = false
@@ -418,6 +421,45 @@ struct TerminalView: View {
                     .foregroundStyle(connected ? .green : .secondary)
             }
             Spacer(minLength: 0)
+
+            // ⚠️ MUTE LIVES HERE AND NOT IN THE `+` MENU — his call and mine, 2026-08-31
+            // 17:09: "the main screen is getting cluttered", then "I agree the plus is
+            // not a good fit."
+            //
+            // A mute has to be ONE TAP. Someone walks into the room and you need silence
+            // NOW; a menu you have to open and read is the wrong shape for that, for the
+            // same reason his own spoken version of this is one syllable — "shh".
+            //
+            // This row was the emptiest space on the screen: a coloured dot and one word
+            // across the full width. A glyph on the right costs no new row and no new
+            // chrome.
+            //
+            // ⚠️ AND IT STAYS VISIBLE WHEN MUTED. An icon that disappears once you use it
+            // is a control you cannot undo — you would have to go back into Settings to
+            // hear anything again, which defeats the point of putting it here.
+            //
+            // It doubles as the way the feature is FOUND. Minutes before this was built
+            // he asked "Wheres the hands free at?" about a toggle two sheets deep. A
+            // speaker on the main screen answers that without a sentence from me.
+            //
+            // ONE SOURCE OF TRUTH: this flips the same flag the Settings toggle does,
+            // rather than a second session-level mute that could disagree with it.
+            // Two controls for one behaviour is the thing he took apart yesterday.
+            if connected || isDemo {
+                Button {
+                    if spoken.isEnabled {
+                        spoken.stop()          // silence what is mid-sentence, not just what comes next
+                        spoken.isEnabled = false
+                    } else {
+                        spoken.isEnabled = true
+                    }
+                } label: {
+                    Image(systemName: spoken.isEnabled ? "speaker.wave.2.fill" : "speaker.slash")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(spoken.isEnabled ? .green : .secondary)
+                .accessibilityLabel(spoken.isEnabled ? "Mute spoken output" : "Speak output aloud")
+            }
         }
         // ⚠️ MESLO, NOT THE SYSTEM FACE. Michael, 2026-08-30 09:09: "the font is not
         // nerdy." I shipped this strip on `.font(.caption)` — the system font — which put

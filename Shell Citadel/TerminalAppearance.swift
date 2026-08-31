@@ -271,7 +271,7 @@ struct AppearanceSettingsView: View {
         switch appearance.fitMode {
         case .columns: return "Columns is setting the size; lines follows. Edit lines to swap."
         case .lines:   return "Lines is setting the size; columns follows. Edit columns to swap."
-        case .manual:  return "The slider sets the size. Columns and lines follow it."
+        case .manual:  return "The slider sets the size; columns and lines follow it."
         }
     }
 
@@ -320,10 +320,19 @@ struct AppearanceSettingsView: View {
             Text(sizeSourceCaption)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            // ⚠️ THE LABEL USED TO SAY "Set the size myself" ON THE SLIDER, AND THAT IS
+            // BACKWARDS. Michael, 2026-08-30 22:00: "setting your self is typing numbers
+            // automatic is slider because the slider changes the height and width."
+            //
+            // He is right and it is his model that is correct. Naming a number IS setting
+            // it yourself; dragging one control and letting both the column count and the
+            // line count fall out of it is the automatic one. The label named the control
+            // from the developer's side — "manual mode" — instead of describing what the
+            // person doing it is actually doing.
             Toggle(isOn: Binding(
                 get: { appearance.fitMode == .manual },
                 set: { appearance.fitMode = $0 ? .manual : .columns })) {
-                Text("Set the size myself")
+                Text("Size with the slider")
             }
             VStack(alignment: .leading, spacing: 6) {
                 // Greyed WITH the slider, so the row reads as off together. A live-looking

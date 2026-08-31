@@ -159,6 +159,25 @@ enum DemoMode {
               text: "The Connection sheet opens with the host and username already filled, so the password is the only thing left to type. It is kept in the Keychain and never asked for again.",
               isOutput: false, delay: 1.8),
 
+        // ⚠️ HIS ASK, 2026-08-31: "the demo probably should narrate you only need to ssh
+        // to a server and shell connect will save it in the slider icon settings."
+        //
+        // VERIFIED BEFORE WRITING, not assumed — `connect()` adds the profile to
+        // ConnectionLibrary on SUCCESS only, and appends this exact sentence. His own
+        // ruling, 08-29: "if i successfully make a connection it should auto save to the
+        // connections list." Proof first, then persistence, so an untested host typed
+        // from memory never clutters the library.
+        //
+        // The name below is the host because that is what the code substitutes when the
+        // profile name is still empty or the default.
+        .init(source: .system,
+              text: "Saved “my-macbook-air.local” to your connections.",
+              isOutput: false, delay: 1.3),
+
+        .init(source: .system,
+              text: "That is the only time you type it. It is in the connections list behind the sliders now — open that in any tab and pick it, and the password comes with it.",
+              isOutput: false, delay: 1.8),
+
         .init(source: .you, text: "screen -S claude", isOutput: false, delay: 1.6),
         .init(source: .claude, text: "~ %", isOutput: true, delay: 0.9),
 

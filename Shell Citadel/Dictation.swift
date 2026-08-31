@@ -40,6 +40,7 @@
 //
 
 import AVFoundation
+import AudioToolbox
 import Combine
 import Foundation
 import Speech
@@ -56,6 +57,18 @@ final class Dictation: ObservableObject {
 
     /// What has been heard so far in this utterance, shown live in the composer.
     @Published private(set) var partial = ""
+
+    /// ⚠️ PROOF THAT SOUND IS ARRIVING, not a claim that it might be.
+    ///
+    /// His ask, 2026-08-31 18:13: "its green but not listening can it have a sound uv
+    /// embellishment." A coloured button reports a FLAG — green because a variable is
+    /// true — and it stays green while nothing whatsoever reaches the microphone. That is
+    /// exactly what happened: see the tap below. This is measured off the live audio
+    /// buffer, so a moving indicator means real sound is really arriving. It cannot be
+    /// green and wrong.
+    @Published private(set) var level: Double = 0
+
+    private var lastLevelPublish = Date.distantPast
 
     /// The problem, in a sentence, when there is one. Shown rather than swallowed —
     /// a microphone that quietly does nothing is the worst version of this feature.
@@ -93,6 +106,23 @@ final class Dictation: ObservableObject {
     /// "send" means; this file only decides WHEN.
     var onUtterance: ((String) -> Void)?
 
+    /// ⚠️ SAY WHAT WENT WRONG, IN THE TRANSCRIPT, WHERE HE IS ALREADY LOOKING.
+    ///
+    /// HIS BUG, 2026-08-31 18:12: "it didnt start listening after i pressed the red mic
+    /// to tirn green then i said can you hear me nothing happened."
+    ///
+    /// The first version set a `problem` string that NOTHING EVER DISPLAYED. A microphone
+    /// that fails quietly is the worst possible version of this feature — you cannot tell
+    /// a denied permission from a missing model from a broken app, and you stand there
+    /// talking to something that is not listening. This app exists partly because of
+    /// exactly that failure shape elsewhere. → [[Diagnosis]]
+    var onNotice: ((String) -> Void)?
+
+    private func notice(_ sentence: String) {
+        problem = sentence
+        onNotice?(sentence)
+    }
+
     private init() {
         let stored = UserDefaults.standard.double(forKey: Key.pause)
         pauseSeconds = stored > 0 ? stored : 2.0
@@ -112,13 +142,13 @@ final class Dictation: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 guard status == .authorized else {
-                    self.problem = "Speech recognition is off for Shell Citadel. Settings → Privacy → Speech Recognition."
+                    self.notice("Not listening: speech recognition is off for Shell Citadel. Settings → Privacy & Security → Speech Recognition.")
                     return
                 }
                 AVAudioApplication.requestRecordPermission { granted in
                     Task { @MainActor in
                         guard granted else {
-                            self.problem = "The microphone is off for Shell Citadel. Settings → Privacy → Microphone."
+                            self.notice("Not listening: the microphone is off for Shell Citadel. Settings → Privacy & Security → Microphone.")
                             return
                         }
                         self.beginSession()
@@ -130,7 +160,16 @@ final class Dictation: ObservableObject {
 
     private func beginSession() {
         guard let recognizer, recognizer.isAvailable else {
-            problem = "Speech recognition is not available right now."
+            notice("Not listening: speech recognition is not available right now.")
+            return
+        }
+
+        // ⚠️ AVAILABLE IS NOT THE SAME AS ON-DEVICE. `requiresOnDeviceRecognition` fails
+        // silently when the offline model for this language has never been downloaded —
+        // the recogniser reports itself available and then simply never returns a result.
+        // Say so rather than leaving a green microphone that hears nothing.
+        guard recognizer.supportsOnDeviceRecognition else {
+            notice("Not listening: this device has no offline speech model for English yet. It usually arrives with a keyboard dictation language download.")
             return
         }
 
@@ -145,13 +184,60 @@ final class Dictation: ObservableObject {
                                     options: [.duckOthers, .allowBluetooth, .defaultToSpeaker])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
-            problem = "Could not start the microphone: \(error.localizedDescription)"
+            notice("Not listening: could not start the microphone. \(error.localizedDescription)")
+            return
+        }
+
+        // ⚠️ THE AUDIO TAP. WITHOUT THIS NOTHING IS LISTENING, AND IT LOOKS FINE.
+        //
+        // I deleted this by accident while extracting `beginRecognitionRun`, and the
+        // result was his 18:12 report: "its green but not listening." The recogniser
+        // started, the button went green, the permission prompts appeared and were
+        // granted — and no audio was ever fed in, so it sat there recognising silence.
+        // Every visible signal said working.
+        //
+        // ⚠️ IT APPENDS TO `self.request`, NOT A CAPTURED ONE. The request is replaced
+        // after every sentence; a captured reference would feed the FIRST request
+        // forever and go deaf after one utterance.
+        let input = audioEngine.inputNode
+        let format = input.outputFormat(forBus: 0)
+        input.removeTap(onBus: 0)
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            Task { @MainActor in self?.request?.append(buffer) }
+
+            // Root mean square of the frame, which is loudness — the actual signal
+            // rather than a proxy for it. Republished about ten times a second; per
+            // buffer would redraw hundreds of times a second for motion the eye cannot
+            // follow.
+            guard let channel = buffer.floatChannelData?[0] else { return }
+            let n = Int(buffer.frameLength)
+            guard n > 0 else { return }
+            var sum: Float = 0
+            for i in 0..<n { sum += channel[i] * channel[i] }
+            let scaled = min(1.0, Double((sum / Float(n)).squareRoot()) * 12)
+            Task { @MainActor in
+                guard let self else { return }
+                let now = Date()
+                guard now.timeIntervalSince(self.lastLevelPublish) > 0.1 else { return }
+                self.lastLevelPublish = now
+                self.level = scaled
+            }
+        }
+
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+        } catch {
+            notice("Not listening: could not start the audio engine. \(error.localizedDescription)")
+            teardown()
             return
         }
 
         beginRecognitionRun()
 
         isListening = true
+        AudioServicesPlaySystemSound(1113)   // the system "begin recording" tone
+        notice("Listening. Say something and it will send after a \(String(format: "%.1f", pauseSeconds))-second pause.")
     }
 
     func stop() {
@@ -160,6 +246,8 @@ final class Dictation: ObservableObject {
         teardown()
         isListening = false
         partial = ""
+        level = 0
+        AudioServicesPlaySystemSound(1114)   // the matching "end recording" tone
     }
 
     private func teardown() {

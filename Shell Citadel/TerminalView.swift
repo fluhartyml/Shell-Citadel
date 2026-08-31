@@ -201,6 +201,11 @@ struct TerminalView: View {
                     draft = spoken
                     send()
                 }
+                // Every microphone outcome lands in the transcript, where he is already
+                // looking. A green button is a claim; this is the evidence.
+                Dictation.shared.onNotice = { sentence in
+                    append(.system, sentence)
+                }
             }
             // HIS RULING, 2026-08-29: "prompts a challenge before dropping the previous
             // open connection." A live session is work in progress; swapping it out from
@@ -468,6 +473,11 @@ struct TerminalView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(dictation.isListening ? .green : .red)
+                // ⚠️ THE ICON MOVES WITH REAL SOUND — his ask, 18:13. Green is a flag and
+                // a flag can be wrong; this is driven off the audio buffer, so if it is
+                // moving, the microphone is genuinely hearing the room.
+                .scaleEffect(dictation.isListening ? 1 + (dictation.level * 0.35) : 1)
+                .animation(.easeOut(duration: 0.12), value: dictation.level)
                 .accessibilityLabel(dictation.isListening ? "Stop listening" : "Listen and send what you say")
             // ⚠️ MUTE LIVES HERE AND NOT IN THE `+` MENU — his call and mine, 2026-08-31
             // 17:09: "the main screen is getting cluttered", then "I agree the plus is

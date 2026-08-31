@@ -203,7 +203,13 @@ final class Dictation: ObservableObject {
         let format = input.outputFormat(forBus: 0)
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            Task { @MainActor in self?.request?.append(buffer) }
+            // ⚠️ DEAF WHILE THE APP IS TALKING. Without this the speaker feeds the
+            // microphone and the app holds a conversation with itself — his 18:18 report,
+            // where my own reply came back as his next message word for word.
+            Task { @MainActor in
+                guard let self, !SpokenOutput.shared.isSpeaking else { return }
+                self.request?.append(buffer)
+            }
 
             // Root mean square of the frame, which is loudness — the actual signal
             // rather than a proxy for it. Republished about ten times a second; per
@@ -303,6 +309,11 @@ final class Dictation: ObservableObject {
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
             Task { @MainActor in
                 guard let self, mine == self.generation, self.isListening else { return }
+                if SpokenOutput.shared.isSpeaking {
+                    // Anything captured while the app was talking is the app's own voice.
+                    self.partial = ""
+                    return
+                }
                 if let result {
                     self.partial = result.bestTranscription.formattedString
                     // EVERY new word restarts the clock. The pause means "silence since

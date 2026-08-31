@@ -44,7 +44,18 @@ import Foundation
 import SwiftUI
 
 @MainActor
-final class SpokenOutput: ObservableObject {
+final class SpokenOutput: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
+
+    /// ⚠️ TRUE WHILE THE APP IS TALKING, and the microphone MUST be deaf while it is.
+    ///
+    /// HIS BUG, 2026-08-31 18:18, and it arrived as the strangest possible symptom: my
+    /// own reply came back to me as his next message, word for word. Speaker on,
+    /// microphone on, no headphones — the phone spoke, heard itself, transcribed itself
+    /// and sent it. A conversation with nobody in it.
+    ///
+    /// AirPods hide this, which is worse than it failing outright: it would have worked
+    /// perfectly in testing and looped the first time he set the phone down.
+    @Published private(set) var isSpeaking = false
 
     static let shared = SpokenOutput()
 
@@ -70,7 +81,14 @@ final class SpokenOutput: ObservableObject {
         didSet { UserDefaults.standard.set(voiceIdentifier, forKey: Key.voice) }
     }
 
-    private init() {
+    override private init() {
+        isEnabled = UserDefaults.standard.bool(forKey: Key.enabled)
+        voiceIdentifier = UserDefaults.standard.string(forKey: Key.voice) ?? ""
+        super.init()
+        synthesizer.delegate = self
+    }
+
+    private func unusedInit() {
         isEnabled = UserDefaults.standard.bool(forKey: Key.enabled)
         voiceIdentifier = UserDefaults.standard.string(forKey: Key.voice) ?? ""
     }
@@ -128,6 +146,19 @@ final class SpokenOutput: ObservableObject {
 
     func stop() {
         synthesizer.stopSpeaking(at: .immediate)
+        isSpeaking = false
+    }
+
+    // MARK: - AVSpeechSynthesizerDelegate
+
+    nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didStart u: AVSpeechUtterance) {
+        Task { @MainActor in self.isSpeaking = true }
+    }
+    nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) {
+        Task { @MainActor in self.isSpeaking = false }
+    }
+    nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didCancel u: AVSpeechUtterance) {
+        Task { @MainActor in self.isSpeaking = false }
     }
 
     // MARK: - What is worth hearing

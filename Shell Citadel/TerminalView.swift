@@ -479,6 +479,12 @@ struct TerminalView: View {
                 .scaleEffect(dictation.isListening ? 1 + (dictation.level * 0.35) : 1)
                 .animation(.easeOut(duration: 0.12), value: dictation.level)
                 .accessibilityLabel(dictation.isListening ? "Stop listening" : "Listen and send what you say")
+                // ⚠️ DOES NOT INHERIT THE ROW'S caption2. His screenshot, 18:20: "On the
+                // ipad the mic and speaker are toosmall to be so close to each other."
+                // Text size and tap-target size are different problems.
+                .font(.system(size: 19))
+                .padding(.horizontal, 7)
+                .contentShape(Rectangle())
             // ⚠️ MUTE LIVES HERE AND NOT IN THE `+` MENU — his call and mine, 2026-08-31
             // 17:09: "the main screen is getting cluttered", then "I agree the plus is
             // not a good fit."
@@ -521,6 +527,12 @@ struct TerminalView: View {
                 // green live — so the pair will read as a pair.
                 .foregroundStyle(spoken.isEnabled ? .green : .red)
                 .accessibilityLabel(spoken.isEnabled ? "Mute spoken output" : "Speak output aloud")
+                // ⚠️ DOES NOT INHERIT THE ROW'S caption2. His screenshot, 18:20: "On the
+                // ipad the mic and speaker are toosmall to be so close to each other."
+                // Text size and tap-target size are different problems.
+                .font(.system(size: 19))
+                .padding(.horizontal, 7)
+                .contentShape(Rectangle())
             }
         }
         // Live words as they are heard. Mirroring into the composer rather than a

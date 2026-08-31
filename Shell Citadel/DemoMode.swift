@@ -141,6 +141,25 @@ enum DemoMode {
               text: "Welcome to Claude Code. Type your request, or /help for commands.",
               isOutput: true, delay: 1.0),
 
+        // ⚠️ VENDOR NEUTRALITY — added 2026-08-31, and it is a SUBMISSION requirement,
+        // not a nicety. The demo named one assistant three times, and the case for this
+        // app being submittable at all rests on it being a terminal rather than any
+        // vendor's client. Michael, 2026-08-29: "in theory the user could use chatgpt or
+        // siri's lm cli tool." A reviewer skimming a Claude-only walkthrough sees a
+        // Claude client, which is the Guideline 4.1(a) shape that already cost him
+        // Audio Universe. So the neutrality is now DEMONSTRATED rather than argued.
+        //
+        // The command below is real and its output was captured from a live shell on
+        // 2026-08-31, per the standard the rest of this script holds itself to.
+        .init(source: .system,
+              text: "That assistant is one example, not a requirement. Shell Citadel is a terminal — anything you can run over SSH runs here, and the app does not care what it is.",
+              isOutput: false, delay: 1.5),
+
+        .init(source: .you, text: "df -h /", isOutput: false, delay: 1.4),
+        .init(source: .claude,
+              text: "Filesystem        Size    Used   Avail Capacity  Mounted on\n/dev/disk3s3s1   926Gi    12Gi   181Gi     7%    /",
+              isOutput: true, delay: 1.0),
+
         .init(source: .system,
               text: "Watching a file on the Mac for new lines. Settings calls it Spoken text — point it at any file a program appends plain sentences to.",
               isOutput: false, delay: 0.9),

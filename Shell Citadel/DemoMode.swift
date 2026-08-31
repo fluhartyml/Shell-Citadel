@@ -129,6 +129,36 @@ enum DemoMode {
               text: "On your Mac, first: System Settings → General → Sharing → Remote Login, switched on. Then put that Mac's name, your username and your password into Settings here.",
               isOutput: false, delay: 1.8),
 
+        // ⚠️ HIS ASK, 2026-08-31: "can you do a mock ssh username@my-macbook-air.local
+        // then a nextline where it shows a password?"
+        //
+        // Shown because it is the form everyone already knows, and because it is a REAL
+        // feature of this app rather than decoration: the composer parses
+        // `ssh [user@]host [-p port]` — and a bare `user@host` too, his call on 08-29:
+        // "what if i type fluhartyml@pihole in the text line?"
+        //
+        // ⚠️ AND THE PASSWORD BEAT IS THE APP'S OWN SENTENCE, NOT A UNIX PROMPT.
+        // Real ssh prints "user@host's password:" and reads it invisibly from the
+        // terminal. THIS APP DOES NOT DO THAT — it prints "Password needed for …" and
+        // opens the Connection sheet, because a password typed into a transcript would
+        // be a password sitting in a transcript. Showing the Unix prompt here would
+        // teach a keystroke that does not exist, which is the one thing this file
+        // forbids. The line below is copied from `connectFromSSHLine`.
+        .init(source: .system,
+              text: "You can also just type it, the way you would in any terminal.",
+              isOutput: false, delay: 1.5),
+
+        .init(source: .you, text: "ssh username@my-macbook-air.local",
+              isOutput: false, delay: 1.5),
+
+        .init(source: .system,
+              text: "Password needed for username@my-macbook-air.local.",
+              isOutput: false, delay: 1.2),
+
+        .init(source: .system,
+              text: "The Connection sheet opens with the host and username already filled, so the password is the only thing left to type. It is kept in the Keychain and never asked for again.",
+              isOutput: false, delay: 1.8),
+
         .init(source: .you, text: "screen -S claude", isOutput: false, delay: 1.6),
         .init(source: .claude, text: "~ %", isOutput: true, delay: 0.9),
 

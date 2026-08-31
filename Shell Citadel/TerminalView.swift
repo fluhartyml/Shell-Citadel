@@ -42,6 +42,15 @@ struct TerminalView: View {
     /// Running the scripted demonstration instead of a connection. See [[DemoMode]] —
     /// this exists for App Review, who have no Mac of their own to connect to.
     @State private var isDemo = false
+
+    /// The real transcript, held while the demonstration borrows the screen.
+    ///
+    /// ⚠️ HIS BUG, 2026-08-31: *"When i tapped demo it cleared what you respondede to my
+    /// last question."* Starting the demo called `lines.removeAll()` on live content and
+    /// ending it cleared again, so a reply he was still reading was destroyed by a button
+    /// labelled Demo. **A demonstration must not be able to lose the user's work** — the
+    /// screen is borrowed, not taken.
+    @State private var savedLines: [TranscriptLine] = []
     /// When his last message went out with no reply back yet. Non-nil is what puts the
     /// waiting row on screen. Michael, 2026-08-30: "i cant tell on my ipad."
     ///
@@ -981,6 +990,9 @@ struct TerminalView: View {
 
     private func startDemo() {
         isDemo = true
+        // Keep what was on screen. The demo still starts clean — it has to be readable —
+        // but clean is achieved by setting the real transcript ASIDE, not by deleting it.
+        savedLines = lines
         lines.removeAll()
         Task {
             for beat in DemoMode.script {
@@ -1055,7 +1067,10 @@ struct TerminalView: View {
 
     private func endDemo() {
         isDemo = false
-        lines.removeAll()
+        // Give the screen back exactly as it was. Anything that arrived during the demo
+        // was scripted and belongs to nobody, so it is the saved transcript that wins.
+        lines = savedLines
+        savedLines = []
     }
 
     /// ⚠️ THE BACKGROUND IS DELIBERATELY NOT SET HERE. Michael, 2026-08-30 09:05:

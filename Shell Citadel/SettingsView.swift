@@ -128,6 +128,9 @@ struct SettingsView: View {
                                 .autocorrectionDisabled()
                         }
                     } header: {
+                    // ⚠️ ATTACH MODE ONLY, because direct mode never stamped and
+                    // must never start. A coordinate glued to `ls -la` is corruption.
+                    Toggle("Tag messages with time and place", isOn: $profile.stampMessages)
                     Text("Advanced")
                 } footer: {
                         Text("Run `tmux ls` on that machine to see session names. The spoken-text file is whatever writes plain sentences there — an interactive session redraws its screen constantly, so it cannot be read aloud directly.")

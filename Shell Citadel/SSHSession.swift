@@ -190,7 +190,9 @@ actor SSHSession {
     /// The buffer name is deliberately odd so it can never clobber a buffer Michael is
     /// using himself, and `-d` deletes it the moment it has been pasted. The Enter that
     /// submits stays a separate, deliberate key.
-    func send(_ text: String) async throws {
+    /// `stamped` defaults to FALSE so a plain terminal stays a plain terminal. See
+    /// `ConnectionProfile.stampMessages` for why the default is the important part.
+    func send(_ text: String, stamped useStamp: Bool = false) async throws {
         guard let client, let destination else { throw SSHSessionError.notConnected }
         _ = client
 
@@ -213,7 +215,7 @@ actor SSHSession {
         // Both apps send through the same tmux session, so without this Claude cannot
         // tell which one he is typing in. Lighthouse sends LH from the phone and Mac
         // from the desk; this is the third.
-        let stamped = "[\(Self.sentStamp()) \(Self.sourceTag)] \(text)"
+        let stamped = useStamp ? "[\(Self.sentStamp()) \(Self.sourceTag)] \(text)" : text
         let body = Self.shellQuoted(stamped)
         let buffer = "shell-citadel-msg"
         // ⚠️ `-p` IS LOAD-BEARING: IT IS BRACKETED PASTE, AND WITHOUT IT THE FRONT OF A

@@ -941,7 +941,12 @@ struct TerminalView: View {
                     //
                     // Empty string when there is no fix — a message must never be held up
                     // or altered because location was unavailable.
-                    try await session.send(text + LocationStamp.shared.messageSuffix())
+                    // Only this connection's own setting decides. Off means a plain
+                    // line reaches the far end, which is what every server that is not
+                    // Claude needs.
+                    try await session.send(
+                        profile.stampMessages ? text + LocationStamp.shared.messageSuffix() : text,
+                        stamped: profile.stampMessages)
                     // The clock starts when the message is AWAY, not when he pressed
                     // send — the upload is not part of the wait he is asking about.
                     waitingSince = Date()

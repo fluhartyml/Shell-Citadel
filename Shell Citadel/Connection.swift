@@ -83,6 +83,25 @@ struct ConnectionProfile: Codable, Equatable, Sendable, Identifiable {
     /// The tmux session to type into. `tmux ls` on the Mac lists these.
     var tmuxSession: String = "claude"
 
+    /// ⚠️ OFF BY DEFAULT, AND THAT DEFAULT IS THE WHOLE POINT.
+    ///
+    /// Michael, 2026-08-31 18:5x: "that the stamp gets piped to the server because the
+    /// text from the sever needs to be usable to any random server, not claude in tmux."
+    ///
+    /// Attach mode was prefixing every line with `[HH:MM SC-iPhone]` and appending a
+    /// coordinate. Harmless when the far end is Claude reading prose — CORRUPTION when it
+    /// is vim, a REPL, a build, or anyone else's tmux session. Attach mode was never
+    /// Claude-only; it just happened to be that here.
+    ///
+    /// He then asked whether the far end could add the stamp instead, and answered it
+    /// himself: "app store connect doesnt have Tmux claude." A hook on his Mac is not
+    /// generic — a customer has nothing reading a sidecar. So the stamp is neither a
+    /// client default nor a server feature. **It is a property of THIS CONNECTION**,
+    /// where something on the far end is known to read sentences.
+    ///
+    /// Clean text ships. He turns it on for his.
+    var stampMessages: Bool = false
+
     /// A file on the Mac that receives plain sentences, read as the voice channel.
     /// Only meaningful in attach mode, because a redraw stream cannot be spoken.
     var voicePath: String = "~/.claude-voice/out.txt"
@@ -112,6 +131,7 @@ struct ConnectionProfile: Codable, Equatable, Sendable, Identifiable {
         startingDirectory = try c.decodeIfPresent(String.self, forKey: .startingDirectory) ?? ""
         tmuxSession = try c.decodeIfPresent(String.self, forKey: .tmuxSession) ?? "claude"
         voicePath = try c.decodeIfPresent(String.self, forKey: .voicePath) ?? "~/.claude-voice/out.txt"
+        stampMessages = try c.decodeIfPresent(Bool.self, forKey: .stampMessages) ?? false
     }
 
     var isComplete: Bool {

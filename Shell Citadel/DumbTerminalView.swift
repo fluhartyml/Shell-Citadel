@@ -23,6 +23,8 @@ struct DumbTerminalView: View {
     /// from this, not assumed — a shell told 80 columns while drawing into 46 will run
     /// `top` off the edge of the screen.
     @State private var streamWidth: Double = 0
+    /// Needed only by the Lines fit mode, which divides it by the row count.
+    @State private var streamHeight: Double = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -78,8 +80,12 @@ struct DumbTerminalView: View {
             .background(
                 GeometryReader { geo in
                     Color.clear
-                        .onAppear { streamWidth = geo.size.width - 16 }
+                        .onAppear {
+                            streamWidth = geo.size.width - 16
+                            streamHeight = geo.size.height
+                        }
                         .onChange(of: geo.size.width) { _, w in streamWidth = w - 16 }
+                        .onChange(of: geo.size.height) { _, h in streamHeight = h }
                 }
             )
             .onChange(of: effectiveGeometry.cols) { _, _ in reportGeometry() }
@@ -163,17 +169,25 @@ struct DumbTerminalView: View {
     /// Point size actually used: derived from the column count when he is fitting to
     /// columns, otherwise his slider value.
     private var effectiveSize: Double {
-        guard appearance.fitToColumns, streamWidth > 0 else { return appearance.fontSize }
-        return TerminalAppearance.sizeToFit(columns: appearance.cols, width: streamWidth)
+        switch appearance.fitMode {
+        case .columns:
+            guard streamWidth > 0 else { return appearance.fontSize }
+            return TerminalAppearance.sizeToFit(columns: appearance.cols, width: streamWidth)
+        case .lines:
+            guard streamHeight > 0 else { return appearance.fontSize }
+            return TerminalAppearance.sizeToFit(rows: appearance.rows, height: streamHeight)
+        case .manual:
+            return appearance.fontSize
+        }
     }
 
     /// What the far end is told. When fitting, that is exactly his column count; when not,
     /// it is however many whole characters fit, so the two never disagree.
     private var effectiveGeometry: (cols: Int, rows: Int) {
         guard streamWidth > 0 else { return (appearance.cols, appearance.rows) }
-        let c = appearance.fitToColumns
+        let c = appearance.fitMode == .columns
             ? appearance.cols
-            : TerminalAppearance.columnsThatFit(width: streamWidth, at: appearance.fontSize)
+            : TerminalAppearance.columnsThatFit(width: streamWidth, at: effectiveSize)
         return (c, appearance.rows)
     }
 

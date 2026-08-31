@@ -59,6 +59,8 @@ struct TerminalView: View {
     /// The transcript's own usable width, measured rather than assumed, so the point size
     /// can be derived from his column count the same way the dumb terminal does it.
     @State private var transcriptWidth: Double = 0
+    /// Needed only by the Lines fit mode, which divides it by the row count.
+    @State private var transcriptHeight: Double = 0
     /// A stable id for the waiting row so the scroller can reach it. The transcript
     /// scrolls to `lines.last`, which would leave this row below the fold — the one row
     /// he actually needs to see.
@@ -333,6 +335,17 @@ struct TerminalView: View {
                     }
                 )
             }
+            // ⚠️ MEASURED ON THE SCROLLVIEW, NOT ON ITS CONTENT. The reader inside the
+            // stack above sees the CONTENT height, which grows with the conversation and
+            // is not what "how many lines fit on screen" means. The Lines fit mode needs
+            // the VIEWPORT, so it is measured out here.
+            .background(
+                GeometryReader { geo in
+                    Color.clear.onChange(of: geo.size.height, initial: true) { _, h in
+                        transcriptHeight = h
+                    }
+                }
+            )
             // A HARD top edge, not the default soft one. Michael, 2026-08-23, from a
             // screenshot: his own line was sitting behind the translucent bar and the
             // settings button, half readable. The soft glass edge is right for content
@@ -1068,8 +1081,16 @@ struct TerminalView: View {
     }
 
     private var transcriptSize: Double {
-        guard appearance.fitToColumns, transcriptWidth > 0 else { return appearance.fontSize }
-        return TerminalAppearance.sizeToFit(columns: appearance.cols, width: transcriptWidth)
+        switch appearance.fitMode {
+        case .columns:
+            guard transcriptWidth > 0 else { return appearance.fontSize }
+            return TerminalAppearance.sizeToFit(columns: appearance.cols, width: transcriptWidth)
+        case .lines:
+            guard transcriptHeight > 0 else { return appearance.fontSize }
+            return TerminalAppearance.sizeToFit(rows: appearance.rows, height: transcriptHeight)
+        case .manual:
+            return appearance.fontSize
+        }
     }
 
     private func colorFor(_ source: TranscriptLine.Source) -> Color {

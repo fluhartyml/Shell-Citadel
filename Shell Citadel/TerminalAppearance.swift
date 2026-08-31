@@ -55,7 +55,38 @@ final class TerminalAppearance: ObservableObject {
     // his number wins over my measurement of his window.
     @AppStorage("term.cols") var cols: Int = 85
     @AppStorage("term.rows") var rows: Int = 20
+    /// ⚠️ LEGACY, KEPT ONLY SO EXISTING INSTALLS MIGRATE. Read `fitMode` instead.
     @AppStorage("term.fitToColumns") var fitToColumns: Bool = true
+
+    /// What decides the point size.
+    ///
+    /// Michael, 2026-08-30 21:44: *"lines are easier to scale than colums"* — and he was
+    /// right that the Lines field did nothing. It never fed the size at all; only columns
+    /// did. So this was not a chain that had come unlocked, it was a control wired to
+    /// nothing, which is worse because it looks like it works.
+    enum FitMode: String, CaseIterable, Identifiable {
+        case columns, lines, manual
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .columns: return "Columns"
+            case .lines:   return "Lines"
+            case .manual:  return "Slider"
+            }
+        }
+    }
+
+    @AppStorage("term.fitMode") private var fitModeRaw: String = ""
+
+    /// Empty storage means this install predates the setting — fall back to what the old
+    /// boolean said, so nobody's terminal changes size just because they updated.
+    var fitMode: FitMode {
+        get {
+            if let m = FitMode(rawValue: fitModeRaw) { return m }
+            return fitToColumns ? .columns : .manual
+        }
+        set { fitModeRaw = newValue.rawValue; objectWillChange.send() }
+    }
     @AppStorage("term.text") private var textData = Data()
     @AppStorage("term.bg") private var bgData = Data()
 
@@ -140,6 +171,26 @@ final class TerminalAppearance: ObservableObject {
         return max(6, min(60, (width / Double(columns)) / (unit / 100)))
     }
 
+    /// One line's height at a given point size. Same trick as `advanceWidth` — measured
+    /// once at 100pt and scaled, because both are linear in point size.
+    static func lineHeight(at size: Double) -> Double {
+        let f = UIFont(name: TerminalFont.regular, size: size)
+            ?? .monospacedSystemFont(ofSize: size, weight: .regular)
+        return f.lineHeight
+    }
+
+    /// The point size at which `rows` lines exactly fill `height`.
+    ///
+    /// The vertical twin of `sizeToFit(columns:width:)`. Note it uses LINE HEIGHT, not
+    /// the point size — a 20pt monospace line occupies more than 20 points, so dividing
+    /// the height by the row count directly would set the type about 20% too large and
+    /// the last line would fall off the bottom.
+    static func sizeToFit(rows: Int, height: Double) -> Double {
+        guard rows > 0, height > 0 else { return 13 }
+        let unit = lineHeight(at: 100)
+        return max(6, min(60, (height / Double(rows)) / (unit / 100)))
+    }
+
     /// How many whole characters fit at the current size.
     static func columnsThatFit(width: Double, at size: Double) -> Int {
         max(1, Int(width / advanceWidth(at: size)))
@@ -160,6 +211,7 @@ final class TerminalAppearance: ObservableObject {
         cols = 84
         rows = 20
         fitToColumns = true
+        fitModeRaw = FitMode.columns.rawValue
     }
 }
 
@@ -167,6 +219,17 @@ final class TerminalAppearance: ObservableObject {
 /// three things he actually named.
 struct AppearanceSettingsView: View {
     @ObservedObject var appearance = TerminalAppearance.shared
+
+    /// Names the CONSEQUENCE, not the mechanism. Michael, 2026-08-30 11:49: "The lable of
+    /// the toggle was not obvious so i saw it resize with the slider." A control that
+    /// greys out another control has to say so.
+    private var sizeSourceCaption: String {
+        switch appearance.fitMode {
+        case .columns: return "The column count sets the text size. The slider is off."
+        case .lines:   return "The line count sets the text size. The slider is off."
+        case .manual:  return "The slider sets the text size."
+        }
+    }
 
     var body: some View {
         Section {
@@ -177,13 +240,17 @@ struct AppearanceSettingsView: View {
             // feature is called and nothing about what it DOES to the control right
             // below it. A user reading a greyed-out slider should not have to infer the
             // cause from a two-word label above it.
-            Toggle(isOn: $appearance.fitToColumns) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Fit to columns")
-                    Text("Columns set the text size. Turn off to use the slider.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Picker("Text size from", selection: Binding(
+                    get: { appearance.fitMode },
+                    set: { appearance.fitMode = $0 })) {
+                    ForEach(TerminalAppearance.FitMode.allCases) { mode in
+                        Text(mode.label).tag(mode)
+                    }
                 }
+                Text(sizeSourceCaption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Stepper(value: $appearance.cols, in: 20...200, step: 1) {
                 LabeledContent("Columns") { Text("\(appearance.cols)") }
@@ -195,11 +262,13 @@ struct AppearanceSettingsView: View {
                 // Greyed WITH the slider, so the row reads as off together. A live-looking
                 // label above a dead control is what made this ambiguous.
                 LabeledContent("Size") {
-                    Text(appearance.fitToColumns ? "from columns" : "\(Int(appearance.fontSize)) pt")
+                    Text(appearance.fitMode == .manual
+                         ? "\(Int(appearance.fontSize)) pt"
+                         : "from \(appearance.fitMode.label.lowercased())")
                 }
-                .foregroundStyle(appearance.fitToColumns ? .secondary : .primary)
+                .foregroundStyle(appearance.fitMode == .manual ? .primary : .secondary)
                 Slider(value: $appearance.fontSize, in: 6...60, step: 1)
-                    .disabled(appearance.fitToColumns)
+                    .disabled(appearance.fitMode != .manual)
             }
             ColorPicker("Text", selection: Binding(
                 get: { appearance.text.color },

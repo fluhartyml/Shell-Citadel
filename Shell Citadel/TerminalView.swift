@@ -144,7 +144,7 @@ struct TerminalView: View {
             .navigationTitle(profile.name.isEmpty ? "Shell Citadel" : profile.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
-            .sheet(isPresented: $showingAbout, onDismiss: { focusRequest += 1 }) { AboutView() }
+            .sheet(isPresented: $showingAbout, onDismiss: { focusRequest += 1 }) { AboutView(onStartDemo: { startDemo() }) }
             .fullScreenCover(isPresented: $showingCamera, onDismiss: { focusRequest += 1 }) {
                 CameraCapture { image in sendPicture(image) }
                     .ignoresSafeArea()
@@ -275,7 +275,10 @@ struct TerminalView: View {
                             .disabled(isBusy)
                             .tint(.red)
                     }
-                    Button("Demo", action: startDemo)
+                    // ⚠️ DEMO IS NOT HERE ANY MORE — moved into the About sheet
+                    // 2026-08-31 at his call, "I like moving the demo to the i."
+                    // A control used once should not hold permanent prime space next to
+                    // the one that ends the session.
                 }
             }
             .font(.callout)

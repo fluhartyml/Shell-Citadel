@@ -418,16 +418,21 @@ struct TerminalView: View {
     /// meaningful while connected.
     private var statusStrip: some View {
         HStack(spacing: 6) {
-            // ⚠️ ONE LINE, EVERYTHING AT ONCE — his layout, 2026-08-31 17:44:
-            // "it should be lightbulb status waiting for reply and countdown them
-            // microphone them speaker in one line."
+            // ⚠️ ONE LINE, AND ONE BULB THAT CHANGES COLOUR — his layout, twice.
             //
-            // ⚠️ AND IT FIXES A CONTRADICTION THIS FILE HAD BEEN CARRYING. The comment
-            // above says "Waiting is layered ON TOP of that, never instead of it" — and
-            // the code did the opposite, replacing the connection status with the
-            // countdown in an else-if. So while waiting, the one indicator that says
-            // whether the app is alive vanished. He asked for both and was describing
-            // the behaviour that was already documented and never built.
+            // 2026-08-30 08:13: "connected is a green light and waiting for message is
+            // yellow."
+            // 2026-08-31 18:02, correcting a version of mine that showed BOTH at once:
+            // "the connected was supposed to be green bulb then the bulb turns yellow and
+            // it says wsiting for reply with countdown."
+            //
+            // I had read the older comment on this row — "waiting is layered ON TOP of
+            // that, never instead of it" — as meaning two indicators side by side, and
+            // built that. Wrong. It is ONE light whose colour is the state, which is how
+            // every status light anyone has ever used behaves. Two dots in a row is not a
+            // status, it is a list.
+            //
+            // Then microphone, then speaker, his order (17:44).
             if isDemo {
                 // A THIRD STATE, deliberately not green and not red. Green would be a lie
                 // and red reads as a fault. Orange says "this is not real" without
@@ -436,18 +441,15 @@ struct TerminalView: View {
                     .overlay(Circle().stroke(.primary.opacity(0.25), lineWidth: 0.5))
                 Text(DemoMode.statusLabel)
                     .foregroundStyle(.orange)
+            } else if let since = waitingSince {
+                // HIS COLOUR, HIS MEANING: "waiting for message is yellow".
+                Circle().fill(.yellow).frame(width: 9, height: 9)
+                    .overlay(Circle().stroke(.primary.opacity(0.25), lineWidth: 0.5))
+                WaitingIndicator(since: since)
             } else {
                 LinkLightView(light: link)
                 Text(connected ? "Connected" : "Not connected")
                     .foregroundStyle(connected ? .green : .secondary)
-            }
-
-            // LAYERED, NOT INSTEAD OF.
-            // HIS COLOUR, HIS MEANING: "waiting for message is yellow".
-            if let since = waitingSince {
-                Circle().fill(.yellow).frame(width: 9, height: 9)
-                    .overlay(Circle().stroke(.primary.opacity(0.25), lineWidth: 0.5))
-                WaitingIndicator(since: since)
             }
 
             Spacer(minLength: 0)
@@ -528,6 +530,12 @@ struct TerminalView: View {
         // it is a chat window wearing terminal clothes." A status strip is not an
         // exception to that; it is the most visible line in the app.
         .font(TerminalFont.mono(.caption2))
+        // ⚠️ ONE LINE, NEVER THREE. His screenshot, 2026-08-31 18:02, showed "Waiting
+        // for a reply ..…" wrapping across three lines and shoving the transcript down
+        // the screen. A status strip that changes HEIGHT is worse than one that says
+        // less: the whole point of it is that nothing under it moves.
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
         .padding(.horizontal, 12)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)

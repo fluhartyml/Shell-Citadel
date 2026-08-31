@@ -82,10 +82,12 @@ struct DumbTerminalView: View {
                     Color.clear
                         .onAppear {
                             streamWidth = geo.size.width - 16
+                            appearance.measuredWidth = streamWidth
                             streamHeight = geo.size.height
+                            appearance.measuredHeight = streamHeight
                         }
-                        .onChange(of: geo.size.width) { _, w in streamWidth = w - 16 }
-                        .onChange(of: geo.size.height) { _, h in streamHeight = h }
+                        .onChange(of: geo.size.width) { _, w in streamWidth = w - 16; appearance.measuredWidth = streamWidth }
+                        .onChange(of: geo.size.height) { _, h in streamHeight = h; appearance.measuredHeight = h }
                 }
             )
             .onChange(of: effectiveGeometry.cols) { _, _ in reportGeometry() }

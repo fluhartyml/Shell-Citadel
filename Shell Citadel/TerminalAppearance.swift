@@ -78,6 +78,39 @@ final class TerminalAppearance: ObservableObject {
 
     @AppStorage("term.fitMode") private var fitModeRaw: String = ""
 
+    /// The live size of whichever text area is on screen, published by that view.
+    ///
+    /// ⚠️ NOT PERSISTED, AND NOT WRITTEN BACK INTO `cols`/`rows`. The follower count is
+    /// DERIVED for display rather than stored, because storing it means two views can
+    /// both decide they are the writer and argue with each other. Nothing here mutates
+    /// his numbers; it only lets Settings tell him the truth about what fits.
+    var measuredWidth: Double = 0 { didSet { objectWillChange.send() } }
+    var measuredHeight: Double = 0 { didSet { objectWillChange.send() } }
+
+    /// The point size in force right now, under the current mode and measurements.
+    var resolvedSize: Double {
+        switch fitMode {
+        case .columns:
+            guard measuredWidth > 0 else { return fontSize }
+            return Self.sizeToFit(columns: cols, width: measuredWidth)
+        case .lines:
+            guard measuredHeight > 0 else { return fontSize }
+            return Self.sizeToFit(rows: rows, height: measuredHeight)
+        case .manual:
+            return fontSize
+        }
+    }
+
+    /// What the follower field really works out to. Nil when it cannot be known yet.
+    var columnsInForce: Int? {
+        guard measuredWidth > 0 else { return nil }
+        return fitMode == .columns ? cols : Self.columnsThatFit(width: measuredWidth, at: resolvedSize)
+    }
+    var rowsInForce: Int? {
+        guard measuredHeight > 0 else { return nil }
+        return fitMode == .lines ? rows : Self.rowsThatFit(height: measuredHeight, at: resolvedSize)
+    }
+
     /// Empty storage means this install predates the setting — fall back to what the old
     /// boolean said, so nobody's terminal changes size just because they updated.
     var fitMode: FitMode {
@@ -196,6 +229,11 @@ final class TerminalAppearance: ObservableObject {
         max(1, Int(width / advanceWidth(at: size)))
     }
 
+    /// How many whole lines fit at the current size.
+    static func rowsThatFit(height: Double, at size: Double) -> Int {
+        max(1, Int(height / lineHeight(at: size)))
+    }
+
     /// Called once at launch. Replaces stored appearance with the current seed if this
     /// install predates it, then never touches his choices again.
     func applySeedIfOutdated() {
@@ -223,11 +261,17 @@ struct AppearanceSettingsView: View {
     /// Names the CONSEQUENCE, not the mechanism. Michael, 2026-08-30 11:49: "The lable of
     /// the toggle was not obvious so i saw it resize with the slider." A control that
     /// greys out another control has to say so.
+    /// The follower shows what actually fits, not the number last typed into it — an
+    /// em dash while nothing has been measured yet, rather than a confident wrong number.
+    private func follower(_ value: Int?) -> String {
+        value.map(String.init) ?? "—"
+    }
+
     private var sizeSourceCaption: String {
         switch appearance.fitMode {
-        case .columns: return "The column count sets the text size. The slider is off."
-        case .lines:   return "The line count sets the text size. The slider is off."
-        case .manual:  return "The slider sets the text size."
+        case .columns: return "Columns is setting the size; lines follows. Edit lines to swap."
+        case .lines:   return "Lines is setting the size; columns follows. Edit columns to swap."
+        case .manual:  return "The slider sets the size. Columns and lines follow it."
         }
     }
 
@@ -240,23 +284,46 @@ struct AppearanceSettingsView: View {
             // feature is called and nothing about what it DOES to the control right
             // below it. A user reading a greyed-out slider should not have to infer the
             // cause from a two-word label above it.
-            VStack(alignment: .leading, spacing: 2) {
-                Picker("Text size from", selection: Binding(
-                    get: { appearance.fitMode },
-                    set: { appearance.fitMode = $0 })) {
-                    ForEach(TerminalAppearance.FitMode.allCases) { mode in
-                        Text(mode.label).tag(mode)
-                    }
+            // ⚠️ NO MODE PICKER. There was one for about seven minutes and Michael took
+            // it apart, 2026-08-30 21:51: "That was odd having to choose lines when i
+            // typed lines in the input box. It's unintuitive to have to change the
+            // dropdown — the height (lines) should be chained to the width (columns)."
+            //
+            // He is right, and the picker was the imposition. Typing a number into a
+            // field IS the instruction to use that number; making him then confirm it in
+            // a second control is asking him to say the same thing twice. So the field
+            // he edits becomes the one that drives, and the other follows to whatever
+            // actually fits — the Photoshop chain he asked for, which is where this
+            // started.
+            Stepper(value: Binding(
+                get: { appearance.cols },
+                set: { appearance.cols = $0; appearance.fitMode = .columns }),
+                in: 20...200, step: 1) {
+                LabeledContent("Columns") {
+                    Text(appearance.fitMode == .columns
+                         ? "\(appearance.cols)"
+                         : follower(appearance.columnsInForce))
+                        .foregroundStyle(appearance.fitMode == .columns ? .primary : .secondary)
                 }
-                Text(sizeSourceCaption)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
-            Stepper(value: $appearance.cols, in: 20...200, step: 1) {
-                LabeledContent("Columns") { Text("\(appearance.cols)") }
+            Stepper(value: Binding(
+                get: { appearance.rows },
+                set: { appearance.rows = $0; appearance.fitMode = .lines }),
+                in: 10...100, step: 1) {
+                LabeledContent("Lines") {
+                    Text(appearance.fitMode == .lines
+                         ? "\(appearance.rows)"
+                         : follower(appearance.rowsInForce))
+                        .foregroundStyle(appearance.fitMode == .lines ? .primary : .secondary)
+                }
             }
-            Stepper(value: $appearance.rows, in: 10...100, step: 1) {
-                LabeledContent("Lines") { Text("\(appearance.rows)") }
+            Text(sizeSourceCaption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Toggle(isOn: Binding(
+                get: { appearance.fitMode == .manual },
+                set: { appearance.fitMode = $0 ? .manual : .columns })) {
+                Text("Set the size myself")
             }
             VStack(alignment: .leading, spacing: 6) {
                 // Greyed WITH the slider, so the row reads as off together. A live-looking

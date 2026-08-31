@@ -331,6 +331,7 @@ struct TerminalView: View {
                     GeometryReader { geo in
                         Color.clear.onChange(of: geo.size.width, initial: true) { _, w in
                             transcriptWidth = w
+                            appearance.measuredWidth = w
                         }
                     }
                 )
@@ -343,6 +344,7 @@ struct TerminalView: View {
                 GeometryReader { geo in
                     Color.clear.onChange(of: geo.size.height, initial: true) { _, h in
                         transcriptHeight = h
+                        appearance.measuredHeight = h
                     }
                 }
             )

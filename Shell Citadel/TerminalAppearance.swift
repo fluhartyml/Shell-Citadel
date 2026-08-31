@@ -10,6 +10,7 @@
 //  has sent of that window. A customer who never opens these settings gets his setup,
 //  which is a working example rather than a beige default nobody chose.
 //
+import AVFAudio
 import Combine
 import SwiftUI
 
@@ -256,6 +257,9 @@ final class TerminalAppearance: ObservableObject {
 /// Font size, ink and paper. Deliberately three settings and not a theme engine — the
 /// three things he actually named.
 struct AppearanceSettingsView: View {
+
+    @ObservedObject private var spoken = SpokenOutput.shared
+
     @ObservedObject var appearance = TerminalAppearance.shared
 
     /// Names the CONSEQUENCE, not the mechanism. Michael, 2026-08-30 11:49: "The lable of
@@ -371,6 +375,31 @@ struct AppearanceSettingsView: View {
             Text("Columns and lines set the terminal size reported to the far end. 80 by 24 is the classic VT100.")
         }
         .previewSample(appearance: appearance)
+
+        // ⚠️ THIS LIVES IN THE SLIDER SHEET, NOT THE CONNECTION SHEET — his call,
+        // 2026-08-31 15:55: "slider settings is probably better." He is right, and the
+        // reason is worth keeping: whether it is acceptable for a device to talk out loud
+        // is a fact about the ROOM THE DEVICE IS IN, not about the Mac being talked to.
+        // On in bed on the phone; off on the iPad with company. Putting it on the
+        // connection would carry the wrong answer to the wrong device.
+        Section {
+            Toggle("Read new output aloud", isOn: $spoken.isEnabled)
+
+            if spoken.isEnabled {
+                Picker("Voice", selection: $spoken.voiceIdentifier) {
+                    Text("Best available").tag("")
+                    ForEach(spoken.availableVoices, id: \.identifier) { voice in
+                        Text(voice.name).tag(voice.identifier)
+                    }
+                }
+            }
+        } header: {
+            Text("Speech")
+        } footer: {
+            // SHORT ENOUGH TO FIT — the same rule as the footer above, learned from a
+            // screenshot of one clipped mid-sentence.
+            Text("Speaks what arrives, not what you type. This is not the Siri voice; Apple keeps that for Siri itself.")
+        }
     }
 
     private func rgb(from color: Color) -> TerminalAppearance.RGB? {

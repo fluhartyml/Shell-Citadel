@@ -1131,6 +1131,25 @@ struct TerminalView: View {
         // answer about why nothing is coming, so leaving the row spinning underneath it
         // would be the app contradicting itself.
         if source != .you { waitingSince = nil }
+
+        // SPEAK IT. Michael, 2026-08-31 16:02: "If citadel says everything the server
+        // puts on the screen it covers if claude says anything via the terminal and
+        // being hands free i can talk back."
+        //
+        // ⚠️ HOOKED HERE AND NOWHERE ELSE, for the same reason the waiting clock is —
+        // every line in the app arrives through this one function. Speaking at the call
+        // sites instead would mean remembering the voice channel, the error handler and
+        // the disconnect notice separately, and the one that got forgotten would be
+        // silently unspoken with nothing to show for it.
+        //
+        // `.you` is excluded because he said it. Reading his own words back to him is
+        // what a broken echo does.
+        //
+        // The demo IS spoken, deliberately: it is explanatory prose, which is the best
+        // possible thing to hear, and hearing it is itself the demonstration.
+        if source != .you {
+            SpokenOutput.shared.speak(text)
+        }
     }
 
     // MARK: - Persistence

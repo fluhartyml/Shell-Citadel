@@ -609,3 +609,60 @@ settings on the ipad"* / *"If i change sceen settings on ipad i dont want to eff
 **The stores are already per-device** (plain `@AppStorage`, no iCloud sync anywhere) — the seed is
 the only thing that can reach across. **Open question: should the seed stop overwriting values he
 has deliberately changed?**
+
+---
+
+## 🎙️ HANDS FREE — his goal, stated plainly 2026-08-31 15:43
+
+> ***"Use shell citadel hands free"***
+> ***"How can shell citadel talk and listen to you or go hands free whrn using a terminal?
+> Can siri intents work?"***
+
+**Yes, and App Intents is the mechanism.** He got there himself; this records why it is the right
+answer rather than one of several.
+
+### What it inherits instead of building
+
+| Free from the OS | What building it yourself would cost |
+|---|---|
+| **The wake word** | A custom keyword spotter. **iOS has no public wake-word API.** |
+| **Speech to text** | An always-on microphone the OS will not grant in the background |
+| **⭐ Speaking the reply in the Siri voice** | Every voice problem of 2026-08-31 (see below) |
+
+**That third row is the one that matters, and it is not a nicety.** An App Intent returns an
+`IntentDialog`, and **Siri speaks it in the system Siri voice** — the exact voice he spent an
+afternoon failing to reach on the Mac. On 2026-08-31 `say` began aborting with SIGABRT because the
+Siri neural model lives in a Group Container the terminal cannot read
+(`group.com.apple.SiriTTS/BNNSModels/…`, errno 1). **On iOS that whole class of problem does not
+exist**, because the app never touches the model — Siri does the speaking.
+→ `~/.claude-voice/speak.sh`, and the Skills Lab entry on reporting success without verifying it.
+
+### ⚠️ The one real problem: LATENCY, and it decides the architecture
+
+**Siri intents are turn-based and they time out. Claude takes seconds to tens of seconds.**
+An intent that waits for the answer will fail, and it will fail *intermittently*, which is worse.
+
+**So the intent must not carry the reply.** It acknowledges — *"sent"* — and the answer arrives
+**separately**: a notification, or a spoken announcement. **This is not a workaround; it is the
+same asynchronous shape the app already uses**, where `out.txt` is tailed rather than awaited.
+→ the identical constraint applies to the Home Assistant voice route, recorded in
+`Lighthouse/Aide/DEVELOPER-NOTES.md` under the stranger's door.
+
+### Free reach, once the intent exists
+
+App Intents appear in **Shortcuts** automatically. So the same one line of capability becomes an
+**Action Button** press, a **Back Tap**, an automation — **and a Shortcut on the Mac**, which is the
+other half of the same day's problem.
+
+### ⬜ Open — his, not mine
+
+1. **What the intent's phrase is.** *"Ask Shell Citadel to…"* is the default shape; the wording is
+   his ear, not mine.
+2. **How the answer comes back** — notification, spoken announcement, or both, and whether that
+   differs at 3am in bed versus with someone else in the room.
+3. **Whether Siri answering also wakes the HomePods.** He has smart speakers in every room, some
+   with two or three. Which device responds is an ecosystem behaviour, not something this app
+   controls. → [[feedback_no_wake_words_in_say]]
+
+**⚠️ Nothing built. The API surface above is written from working knowledge on 2026-08-31 and has
+not been checked against the OS 27 SDK.** → [[feedback_apple_is_source_of_truth]]

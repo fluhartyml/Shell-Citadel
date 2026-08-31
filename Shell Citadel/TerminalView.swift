@@ -460,7 +460,12 @@ struct TerminalView: View {
                     Image(systemName: spoken.isEnabled ? "speaker.wave.2.fill" : "speaker.slash")
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(spoken.isEnabled ? .green : .secondary)
+                // ⚠️ RED WHEN MUTED, NOT GREY. His call, 2026-08-31 17:25: "the no
+                // speaker icon should be red." Grey reads as "unavailable"; red reads as
+                // "off, and that is a state you chose." It also matches the colour
+                // language he proposed for the microphone in the same breath — red muted,
+                // green live — so the pair will read as a pair.
+                .foregroundStyle(spoken.isEnabled ? .green : .red)
                 .accessibilityLabel(spoken.isEnabled ? "Mute spoken output" : "Speak output aloud")
             }
         }

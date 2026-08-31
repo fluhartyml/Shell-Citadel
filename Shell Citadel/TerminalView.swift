@@ -45,6 +45,18 @@ struct TerminalView: View {
 
     /// The listening half. Armed only by a tap — see [[Dictation]].
     @ObservedObject private var dictation = Dictation.shared
+
+    /// The last thing the microphone put in the composer.
+    ///
+    /// ⚠️ HIS BUG, 2026-08-31 18:33: "Sometimes it deletes things I didn't intend for to
+    /// delete." While the mic was armed, EVERY new transcription overwrote the composer —
+    /// including a sentence he had typed by hand. The microphone was quietly clobbering
+    /// his own words mid-edit.
+    ///
+    /// Comparing against this makes the rule simple: dictation may replace what dictation
+    /// wrote, and nothing else. The moment he types, the box is his and the mic stops
+    /// touching it.
+    @State private var lastMicText = ""
     /// Running the scripted demonstration instead of a connection. See [[DemoMode]] —
     /// this exists for App Review, who have no Mac of their own to connect to.
     @State private var isDemo = false
@@ -198,13 +210,26 @@ struct TerminalView: View {
                 // including the ssh-line path. One route in, so a spoken command and a
                 // typed one cannot behave differently.
                 Dictation.shared.onUtterance = { spoken in
-                    draft = spoken
+                    // Same rule at the moment of sending: if he has typed over the
+                    // transcription while it was being heard, HIS text is the one that
+                    // goes. Sending the microphone's version instead would be the same
+                    // bug wearing a different hat.
+                    if draft.isEmpty || draft == lastMicText { draft = spoken }
+                    lastMicText = ""
                     send()
                 }
                 // Every microphone outcome lands in the transcript, where he is already
                 // looking. A green button is a claim; this is the evidence.
                 Dictation.shared.onNotice = { sentence in
                     append(.system, sentence)
+                }
+                // Clear the box too — leaving the discarded sentence sitting there would
+                // mean "scratch that" scratched nothing he could see.
+                Dictation.shared.onCancelled = {
+                    if draft.isEmpty || draft == lastMicText {
+                        draft = ""
+                        lastMicText = ""
+                    }
                 }
             }
             // HIS RULING, 2026-08-29: "prompts a challenge before dropping the previous
@@ -539,7 +564,12 @@ struct TerminalView: View {
         // separate label means he SEES what it thinks he said before it sends — the
         // only chance to catch a misheard command is before it runs.
         .onChange(of: dictation.partial) { _, latest in
-            if dictation.isListening { draft = latest }
+            guard dictation.isListening else { return }
+            // Only overwrite an empty box, or one still holding the microphone's own
+            // last words. Anything else is something he typed, and it stays.
+            guard draft.isEmpty || draft == lastMicText else { return }
+            draft = latest
+            lastMicText = latest
         }
         // ⚠️ MESLO, NOT THE SYSTEM FACE. Michael, 2026-08-30 09:09: "the font is not
         // nerdy." I shipped this strip on `.font(.caption)` — the system font — which put

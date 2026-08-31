@@ -118,6 +118,10 @@ final class Dictation: ObservableObject {
     /// exactly that failure shape elsewhere. → [[Diagnosis]]
     var onNotice: ((String) -> Void)?
 
+    /// Called when an utterance ended with a cancel phrase, so the view can clear the
+    /// composer rather than leaving half a discarded sentence sitting in it.
+    var onCancelled: (() -> Void)?
+
     private func notice(_ sentence: String) {
         problem = sentence
         onNotice?(sentence)
@@ -275,10 +279,43 @@ final class Dictation: ObservableObject {
         }
     }
 
+    /// ⚠️ SAYING IT IS THE ONLY WAY TO TAKE IT BACK.
+    ///
+    /// His problem, 2026-08-31 18:34: "how to backspace", then "maybe how to cancel what
+    /// I said." He had tried saying "backspace backspace backspace delete delete delete"
+    /// and watched it transcribed as words, because this recogniser has no editing
+    /// commands.
+    ///
+    /// Tapping the microphone off, fixing the box and tapping it back on is three actions
+    /// to unsay one sentence — and the entire premise is that his hands are not
+    /// available. **A hands-free feature needs a hands-free undo.** So the cancel is a
+    /// phrase.
+    ///
+    /// Matched at the END, not anywhere, so "I said scratch that and he laughed" is still
+    /// a sentence rather than a cancelled one. The phrase has to be the last thing said,
+    /// which is what a person does when correcting themselves.
+    static let cancelPhrases = [
+        "scratch that", "cancel that", "never mind", "nevermind", "delete that", "forget that"
+    ]
+
+    /// True when the utterance ends with a phrase that means "unsay that".
+    static func isCancelled(_ text: String) -> Bool {
+        let t = text.lowercased()
+            .trimmingCharacters(in: CharacterSet(charactersIn: " .,!?"))
+        return cancelPhrases.contains { t == $0 || t.hasSuffix(" " + $0) }
+    }
+
     /// The pause elapsed. Hand over what was said and start listening for the next thing.
     private func commit() {
         let text = partial.trimmingCharacters(in: .whitespacesAndNewlines)
         partial = ""
+
+        if Self.isCancelled(text) {
+            onCancelled?()
+            notice("Scratched.")
+            restartRecognition()
+            return
+        }
         // ⚠️ A COUGH IS NOT A SENTENCE. A single stray syllable picked up from the room
         // should not be sent to a live shell. Two characters is a low bar deliberately —
         // "ls" is a real command — but it stops the empty and one-letter noise that a

@@ -259,6 +259,7 @@ final class TerminalAppearance: ObservableObject {
 struct AppearanceSettingsView: View {
 
     @ObservedObject private var spoken = SpokenOutput.shared
+    @ObservedObject private var dictation = Dictation.shared
 
     @ObservedObject var appearance = TerminalAppearance.shared
 
@@ -391,6 +392,17 @@ struct AppearanceSettingsView: View {
                     ForEach(spoken.availableVoices, id: \.identifier) { voice in
                         Text(voice.name).tag(voice.identifier)
                     }
+                }
+            }
+            // ⚠️ HALF-SECOND STEPS, 0.5 TO 5 — his, 2026-08-31 17:36. Anything finer
+            // is false precision on a measurement of how long a person takes to think.
+            Stepper(value: $dictation.pauseSeconds, in: 0.5...5.0, step: 0.5) {
+                HStack {
+                    Text("Pause before sending")
+                    Spacer()
+                    Text(String(format: "%.1fs", dictation.pauseSeconds))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
             }
         } header: {

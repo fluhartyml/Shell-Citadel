@@ -42,6 +42,9 @@ struct TerminalView: View {
 
     /// Speech, so the status strip can carry a mute. See the button below.
     @ObservedObject private var spoken = SpokenOutput.shared
+
+    /// The listening half. Armed only by a tap — see [[Dictation]].
+    @ObservedObject private var dictation = Dictation.shared
     /// Running the scripted demonstration instead of a connection. See [[DemoMode]] —
     /// this exists for App Review, who have no Mac of their own to connect to.
     @State private var isDemo = false
@@ -188,6 +191,16 @@ struct TerminalView: View {
                 // One-time lift so an existing install finds his Mac already in the
                 // library instead of an empty list and a setup he has to retype.
                 ConnectionLibrary.shared.adoptIfEmpty(profile)
+
+                // WHAT "SEND" MEANS BELONGS HERE, NOT IN THE MICROPHONE. Dictation
+                // decides WHEN a sentence has ended; this decides what happens to it —
+                // which is exactly what happens when he types one and presses the arrow,
+                // including the ssh-line path. One route in, so a spoken command and a
+                // typed one cannot behave differently.
+                Dictation.shared.onUtterance = { spoken in
+                    draft = spoken
+                    send()
+                }
             }
             // HIS RULING, 2026-08-29: "prompts a challenge before dropping the previous
             // open connection." A live session is work in progress; swapping it out from
@@ -467,7 +480,29 @@ struct TerminalView: View {
                 // green live — so the pair will read as a pair.
                 .foregroundStyle(spoken.isEnabled ? .green : .red)
                 .accessibilityLabel(spoken.isEnabled ? "Mute spoken output" : "Speak output aloud")
+
+                // ⚠️ RED MUTED, GREEN LIVE — the same colour language as the speaker
+                // beside it, so the pair reads as a pair. His, 17:25.
+                //
+                // ⚠️ AND IT DOES NOT ARM ITSELF. I argued that it should, and he
+                // overruled it, 17:31: "the app is not armed to go hands free untill i
+                // tap both the speaker on and the microphone." A terminal that starts
+                // listening the moment it opens is a microphone nobody asked for.
+                Button {
+                    dictation.toggle()
+                } label: {
+                    Image(systemName: dictation.isListening ? "mic.fill" : "mic.slash")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(dictation.isListening ? .green : .red)
+                .accessibilityLabel(dictation.isListening ? "Stop listening" : "Listen and send what you say")
             }
+        }
+        // Live words as they are heard. Mirroring into the composer rather than a
+        // separate label means he SEES what it thinks he said before it sends — the
+        // only chance to catch a misheard command is before it runs.
+        .onChange(of: dictation.partial) { _, latest in
+            if dictation.isListening { draft = latest }
         }
         // ⚠️ MESLO, NOT THE SYSTEM FACE. Michael, 2026-08-30 09:09: "the font is not
         // nerdy." I shipped this strip on `.font(.caption)` — the system font — which put

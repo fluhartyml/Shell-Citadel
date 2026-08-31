@@ -77,6 +77,18 @@ final class Dictation: ObservableObject {
     private var task: SFSpeechRecognitionTask?
     private var silenceTimer: Timer?
 
+    /// ⚠️ WHICH RECOGNITION RUN A CALLBACK BELONGS TO, and it is load-bearing.
+    ///
+    /// HIS BUG, 2026-08-31 18:08: "Sent twice… after you say once and pause for send it
+    /// doesnt wait for your next sentence."
+    ///
+    /// `task.cancel()` does not stop the callback. The cancelled task still delivers a
+    /// FINAL result afterwards, which refilled `partial` with the sentence just sent and
+    /// restarted the silence clock — so the same words were committed a second time.
+    /// Every callback now carries the generation it was created under and stale ones are
+    /// dropped on the floor.
+    private var generation = 0
+
     /// Called with the finished sentence when the pause elapses. The view owns what
     /// "send" means; this file only decides WHEN.
     var onUtterance: ((String) -> Void)?
@@ -137,45 +149,7 @@ final class Dictation: ObservableObject {
             return
         }
 
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        request.shouldReportPartialResults = true
-        // ⚠️ ON DEVICE, EXPLICITLY. See the header.
-        request.requiresOnDeviceRecognition = true
-        self.request = request
-
-        let input = audioEngine.inputNode
-        let format = input.outputFormat(forBus: 0)
-        input.removeTap(onBus: 0)
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            request.append(buffer)
-        }
-
-        audioEngine.prepare()
-        do {
-            try audioEngine.start()
-        } catch {
-            problem = "Could not start the microphone: \(error.localizedDescription)"
-            teardown()
-            return
-        }
-
-        task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            Task { @MainActor in
-                guard let self else { return }
-                if let result {
-                    self.partial = result.bestTranscription.formattedString
-                    // EVERY new word restarts the clock. The pause means "silence since
-                    // the last word", not "time since I started talking" — otherwise a
-                    // long sentence would send itself out from under him mid-thought.
-                    self.restartSilenceClock()
-                }
-                if error != nil {
-                    // A recognition error mid-flight is common and not worth a banner —
-                    // the tap is still live, so simply start a fresh request.
-                    self.restartRecognition()
-                }
-            }
-        }
+        beginRecognitionRun()
 
         isListening = true
     }
@@ -223,30 +197,51 @@ final class Dictation: ObservableObject {
         restartRecognition()
     }
 
-    /// Fresh request for the next utterance, without dropping the microphone. Rebuilding
-    /// the whole audio session between sentences would put a gap in the conversation.
+    /// Start one recognition run. Every callback it creates is stamped with the current
+    /// generation, so results arriving from a run we have already moved past are ignored
+    /// rather than treated as new speech.
+    private func beginRecognitionRun() {
+        guard let recognizer, recognizer.isAvailable else { return }
+
+        generation += 1
+        let mine = generation
+
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        // ⚠️ ON DEVICE, EXPLICITLY. See the header.
+        request.requiresOnDeviceRecognition = true
+        self.request = request
+
+        task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+            Task { @MainActor in
+                guard let self, mine == self.generation, self.isListening else { return }
+                if let result {
+                    self.partial = result.bestTranscription.formattedString
+                    // EVERY new word restarts the clock. The pause means "silence since
+                    // the last word", not "time since I started talking" — otherwise a
+                    // long sentence would send itself out from under him mid-thought.
+                    self.restartSilenceClock()
+                }
+                if error != nil {
+                    // A recognition error mid-flight is common and not worth a banner —
+                    // the audio tap is still live, so simply start a fresh run.
+                    self.restartRecognition()
+                }
+            }
+        }
+    }
+
+    /// Fresh run for the next utterance, without dropping the microphone. Rebuilding the
+    /// whole audio session between sentences would put a gap in the conversation.
     private func restartRecognition() {
         guard isListening else { return }
         request?.endAudio()
         task?.cancel()
         request = nil
         task = nil
-
-        guard let recognizer, recognizer.isAvailable else { return }
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        request.shouldReportPartialResults = true
-        request.requiresOnDeviceRecognition = true
-        self.request = request
-
-        task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            Task { @MainActor in
-                guard let self else { return }
-                if let result {
-                    self.partial = result.bestTranscription.formattedString
-                    self.restartSilenceClock()
-                }
-                if error != nil { self.restartRecognition() }
-            }
-        }
+        // The generation bump inside beginRecognitionRun is what makes the cancelled
+        // task's trailing final result harmless.
+        beginRecognitionRun()
     }
+
 }

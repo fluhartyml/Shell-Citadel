@@ -266,61 +266,38 @@ actor SSHSession {
         // AND the daylight after it.
         //
         // 0.3s is imperceptible per message and generous next to the settle it covers.
-        // ⚠️ SEND, THEN READ THE LINE BACK. A DELAY IS A HOPE; THIS IS A CHECK.
+        // ⚠️ DO NOT PUT A capture-pane CHECK BACK HERE. IT WAS TRIED TONIGHT AND IT LIED.
         //
-        // The 0.3s pause below is still worth having, but Michael took the previous fix
-        // apart in one question: "if it sits then how would you catch it if it doesnt
-        // enter?" He is right — a message stranded in the composer never reaches Claude,
-        // so nothing on the Mac is ever woken up to notice. The failure is SILENT on both
-        // ends: the app believes it sent, and Claude never knew there was anything to
-        // receive. That is the same family as the messages that died in wedged tmux
-        // processes on 2026-08-29 — delivery that reports success and loses content.
+        // The intent was right and Michael's question that prompted it was right: "if it
+        // sits then how would you catch it if it doesnt enter?" A stranded message is
+        // silent on both ends. But the ORACLE was wrong twice over, and the second one is
+        // the one that matters.
         //
-        // So the app confirms its own work. `capture-pane` reads the prompt line; if the
-        // composer still holds text after the Enter, the Enter did not land as a submit
-        // and it presses again. Up to three attempts, then it gives up and SAYS SO rather
-        // than pretending.
+        // First mistake: `capture-pane -p` returns the whole pane and already-sent
+        // messages still carry the `❯` marker, so it read his scrollback as stranded.
+        // Fixed by taking only the last prompt line — and it still lied.
         //
-        // ⚠️ WHY IT IS SAFE TO PRESS AGAIN. The retry only fires when the line is still
-        // non-empty, which is the exact condition where our own text is sitting there
-        // unsent. An extra Enter on an EMPTY line does nothing in a TUI composer, so the
-        // worst case of a mistimed retry is a no-op rather than a stray submit.
+        // Second mistake, the fatal one: WHEN CLAUDE IS MID-TURN, CLAUDE CODE QUEUES HIS
+        // MESSAGE AND DRAWS IT IN THE LINE. Queued and unsent look identical to anything
+        // reading pixels. So it warned him that a message had not sent while that exact
+        // message was already on its way to me, and the retry pressed Enter into a queue
+        // that already held it. His report: "It says i didnt send but thebmavbook does
+        // send."
         //
-        // ⚠️ THE COMPOSER IS THE *LAST* PROMPT LINE, NOT ANY OF THEM.
+        // ⚠️ A FALSE DELIVERY WARNING IS WORSE THAN NO WARNING — it teaches him to ignore
+        // the real one. That is why this is a plain settle again rather than a cleverer
+        // scrape.
         //
-        // Caught the same evening, before he hit it: `capture-pane -p` returns the whole
-        // visible pane, and messages he has ALREADY SENT are still drawn with the same
-        // `❯` marker. A bare `grep -c '^❯ ...'` therefore counts his scrollback as
-        // stranded text — it would have fired the retry on every single send and then
-        // thrown a false "sitting unsent" at him every time.
-        //
-        // A false alarm on a delivery warning is worse than no warning: it teaches him to
-        // ignore the one that is real. So: take the last prompt line, and only that one.
-        let composerHasText = "\(tmux) capture-pane -p -t \(session) "
-            + "| grep '^❯' | tail -1 | grep -c '^❯[[:space:]]*[^[:space:]]'"
-
+        // THE RIGHT FIX IS A RECEIPT, NOT A SCREENSHOT. The Mac already runs a hook when a
+        // prompt is genuinely submitted; that hook can stamp a file, and the app can look
+        // for a stamp newer than its own send. That is ground truth from the receiving
+        // end instead of an inference from the far end's rendering.
         _ = try await run("""
             \(tmux) set-buffer -b \(buffer) -- \(body) \
               && \(tmux) paste-buffer -d -p -b \(buffer) -t \(session) \
               && sleep 0.3 \
               && \(tmux) send-keys -t \(session) Enter
             """)
-
-        // Confirm it actually went. Two extra presses at most; each costs a fifth of a
-        // second and only happens on the path that was previously silent.
-        for _ in 0..<2 {
-            let still = try? await run(composerHasText)
-            let stranded = (still?.trimmingCharacters(in: .whitespacesAndNewlines)).map { $0 != "0" } ?? false
-            guard stranded else { return }
-            _ = try? await run("sleep 0.2 && \(tmux) send-keys -t \(session) Enter")
-        }
-
-        // Still sitting there after three presses. Say so — a message he believes he sent
-        // and Claude never saw is worse than an error he can act on.
-        let final = try? await run(composerHasText)
-        if (final?.trimmingCharacters(in: .whitespacesAndNewlines)).map({ $0 != "0" }) ?? false {
-            throw SSHSessionError.strandedInComposer
-        }
     }
 
     // MARK: - Finding tmux

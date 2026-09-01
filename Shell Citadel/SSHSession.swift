@@ -38,6 +38,8 @@ enum SSHSessionError: Error, LocalizedError {
     case notConnected
     case tmuxNotFound
     case noSuchSession(String)
+    /// The text reached the tmux composer but never submitted. See `send(_:stamped:)`.
+    case strandedInComposer
 
     var errorDescription: String? {
         switch self {
@@ -47,6 +49,8 @@ enum SSHSessionError: Error, LocalizedError {
             "tmux is not installed on the Mac, and Attach mode needs it. Direct mode does not \u{2014} switch modes in Connection settings, or install tmux on the Mac."
         case .noSuchSession(let name):
             "No tmux session named \(name) is running on the Mac. Run tmux ls there to see which sessions exist."
+        case .strandedInComposer:
+            "Your message reached the Mac but is sitting unsent in the chat line. Press Return there to send it."
         }
     }
 }
@@ -262,12 +266,52 @@ actor SSHSession {
         // AND the daylight after it.
         //
         // 0.3s is imperceptible per message and generous next to the settle it covers.
+        // ⚠️ SEND, THEN READ THE LINE BACK. A DELAY IS A HOPE; THIS IS A CHECK.
+        //
+        // The 0.3s pause below is still worth having, but Michael took the previous fix
+        // apart in one question: "if it sits then how would you catch it if it doesnt
+        // enter?" He is right — a message stranded in the composer never reaches Claude,
+        // so nothing on the Mac is ever woken up to notice. The failure is SILENT on both
+        // ends: the app believes it sent, and Claude never knew there was anything to
+        // receive. That is the same family as the messages that died in wedged tmux
+        // processes on 2026-08-29 — delivery that reports success and loses content.
+        //
+        // So the app confirms its own work. `capture-pane` reads the prompt line; if the
+        // composer still holds text after the Enter, the Enter did not land as a submit
+        // and it presses again. Up to three attempts, then it gives up and SAYS SO rather
+        // than pretending.
+        //
+        // ⚠️ WHY IT IS SAFE TO PRESS AGAIN. The retry only fires when the line is still
+        // non-empty, which is the exact condition where our own text is sitting there
+        // unsent. An extra Enter on an EMPTY line does nothing in a TUI composer, so the
+        // worst case of a mistimed retry is a no-op rather than a stray submit.
+        //
+        // grep -c is used rather than parsing: it answers "is there anything after the
+        // prompt marker" with an exit code, which is all this needs.
+        let composerHasText = "\(tmux) capture-pane -p -t \(session) | grep -c '^❯[[:space:]]*[^[:space:]]' "
+
         _ = try await run("""
             \(tmux) set-buffer -b \(buffer) -- \(body) \
               && \(tmux) paste-buffer -d -p -b \(buffer) -t \(session) \
               && sleep 0.3 \
               && \(tmux) send-keys -t \(session) Enter
             """)
+
+        // Confirm it actually went. Two extra presses at most; each costs a fifth of a
+        // second and only happens on the path that was previously silent.
+        for _ in 0..<2 {
+            let still = try? await run(composerHasText)
+            let stranded = (still?.trimmingCharacters(in: .whitespacesAndNewlines)).map { $0 != "0" } ?? false
+            guard stranded else { return }
+            _ = try? await run("sleep 0.2 && \(tmux) send-keys -t \(session) Enter")
+        }
+
+        // Still sitting there after three presses. Say so — a message he believes he sent
+        // and Claude never saw is worse than an error he can act on.
+        let final = try? await run(composerHasText)
+        if (final?.trimmingCharacters(in: .whitespacesAndNewlines)).map({ $0 != "0" }) ?? false {
+            throw SSHSessionError.strandedInComposer
+        }
     }
 
     // MARK: - Finding tmux

@@ -286,9 +286,18 @@ actor SSHSession {
         // unsent. An extra Enter on an EMPTY line does nothing in a TUI composer, so the
         // worst case of a mistimed retry is a no-op rather than a stray submit.
         //
-        // grep -c is used rather than parsing: it answers "is there anything after the
-        // prompt marker" with an exit code, which is all this needs.
-        let composerHasText = "\(tmux) capture-pane -p -t \(session) | grep -c '^❯[[:space:]]*[^[:space:]]' "
+        // ⚠️ THE COMPOSER IS THE *LAST* PROMPT LINE, NOT ANY OF THEM.
+        //
+        // Caught the same evening, before he hit it: `capture-pane -p` returns the whole
+        // visible pane, and messages he has ALREADY SENT are still drawn with the same
+        // `❯` marker. A bare `grep -c '^❯ ...'` therefore counts his scrollback as
+        // stranded text — it would have fired the retry on every single send and then
+        // thrown a false "sitting unsent" at him every time.
+        //
+        // A false alarm on a delivery warning is worse than no warning: it teaches him to
+        // ignore the one that is real. So: take the last prompt line, and only that one.
+        let composerHasText = "\(tmux) capture-pane -p -t \(session) "
+            + "| grep '^❯' | tail -1 | grep -c '^❯[[:space:]]*[^[:space:]]'"
 
         _ = try await run("""
             \(tmux) set-buffer -b \(buffer) -- \(body) \

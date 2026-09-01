@@ -61,6 +61,33 @@ struct WaitingIndicator: View {
                 // Announced as one changing value rather than as new text every half
                 // second, which would make VoiceOver read the row aloud continuously.
                 .accessibilityLabel("Waiting for a reply, \(Int(elapsed)) seconds")
+                // ⛔ THE CLOCK WAS BEING TRUNCATED AWAY. Michael, 2026-09-01, with a
+                // photograph: the strip read "Waiting for a reply    1…" — the elapsed
+                // time cut off mid-number on iPhone width.
+                //
+                // WHY IT MATTERED MORE THAN A COSMETIC CLIP: the number IS the feature.
+                // The whole reason this row exists rather than a spinner is that "40s"
+                // and "4m" mean different things — thinking versus go and look. Truncated
+                // to "1…" it answers nothing, and it is the exact question he built it to
+                // answer: is it locked up?
+                //
+                // ⛔ FIRST ATTEMPT WAS WRONG AND HE CAUGHT IT IMMEDIATELY. I used
+                // .fixedSize + .layoutPriority, which stops the text compressing by
+                // making everything ELSE yield — and what yielded was the speaker mute
+                // button, which vanished off the strip. Michael, 2026-09-01: "The
+                // speaker mute button disappeared."
+                //
+                // ⚠️ THE LESSON: refusing to shrink is not the same as fitting. In a row
+                // with fixed controls, a greedy label does not win space, it evicts
+                // neighbours — and the neighbour it evicted was a control he needs.
+                //
+                // HIS INSTRUCTION IS THE RIGHT FIX: exempt this one row from the app's
+                // minimum font size so it SCALES DOWN to fit instead of truncating or
+                // shoving. The clock stays whole and readable at a smaller size, and the
+                // mute and speaker buttons keep their space.
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .allowsTightening(true)
 
             Spacer(minLength: 0)
         }

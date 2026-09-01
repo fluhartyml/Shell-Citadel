@@ -163,7 +163,7 @@ struct TerminalView: View {
             .navigationTitle(profile.name.isEmpty ? "Shell Citadel" : profile.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
-            .sheet(isPresented: $showingAbout, onDismiss: { focusRequest += 1 }) { AboutView(onStartDemo: { startDemo() }) }
+            .sheet(isPresented: $showingAbout, onDismiss: { focusRequest += 1 }) { aboutSheet }
             .fullScreenCover(isPresented: $showingCamera, onDismiss: { focusRequest += 1 }) {
                 CameraCapture { image in sendPicture(image) }
                     .ignoresSafeArea()
@@ -779,6 +779,24 @@ struct TerminalView: View {
     /// every real shell does exactly this.
     /// Kept for the connection header and any regular-width surface that wants it.
     /// **Deliberately no longer rendered in the composer row** — see the comment there.
+    /// ⚠️ EXTRACTED, NOT DECORATION. Built inline, this pushed `body` past SwiftUI's
+    /// type-checking budget and the build failed with "unable to type-check this
+    /// expression in reasonable time" — on an unrelated confirmationDialog forty lines
+    /// away, which is how that error always presents: the compiler gives up somewhere
+    /// other than the thing that broke it. A `@ViewBuilder` property costs nothing.
+    @ViewBuilder
+    private var aboutSheet: some View {
+        AboutView(onStartDemo: { startDemo() })
+    }
+
+    /// Non-identifying mode word for a bug report. **Pulled out of the AboutView call
+    /// on purpose:** inline, the ternary tipped SwiftUI's type-checker over on that view
+    /// and the build failed with "unable to type-check this expression in reasonable
+    /// time." A one-line computed property costs nothing and the compiler is happy.
+    private var connectionModeLabel: String {
+        profile.mode == .attach ? "attach" : "direct"
+    }
+
     private var promptLabel: String {
         guard connected else { return ">" }
         let who = remoteUser.isEmpty ? profile.username : remoteUser

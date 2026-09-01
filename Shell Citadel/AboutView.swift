@@ -8,6 +8,11 @@ import SwiftUI
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
 
+    /// Contact-the-developer sheet state. The type is chosen by which row was tapped.
+    @State private var showingFeedback = false
+    @State private var feedbackType: FeedbackView.FeedbackType = .bug
+
+
     /// Starts the demonstration in the terminal behind this sheet.
     ///
     /// ⚠️ WHY DEMO MOVED HERE, 2026-08-31. It sat in the toolbar pill beside Disconnect,
@@ -69,6 +74,36 @@ struct AboutView: View {
                     Text("Sending and listening are separate on purpose. A reply can take longer than Siri will wait, so sending confirms it arrived, and catching up reads the answer whenever it is ready.")
                 }
 
+                // ⭐ CONTACT THE DEVELOPER. Michael, 2026-09-01 — the same gateway his
+                // other live apps ship, so reports from all of them arrive looking alike.
+                // Three doors rather than one box: a person with a crash and a person
+                // with an idea are not in the same mood, and a segmented picker they have
+                // to notice is a door they will not open.
+                Section {
+                    Button {
+                        feedbackType = .bug
+                        showingFeedback = true
+                    } label: {
+                        Label("Report a problem", systemImage: "exclamationmark.bubble")
+                    }
+                    Button {
+                        feedbackType = .crash
+                        showingFeedback = true
+                    } label: {
+                        Label("Report a crash", systemImage: "bolt.trianglebadge.exclamationmark")
+                    }
+                    Button {
+                        feedbackType = .feature
+                        showingFeedback = true
+                    } label: {
+                        Label("Request a feature", systemImage: "lightbulb")
+                    }
+                } header: {
+                    Text("Contact the developer")
+                } footer: {
+                    Text("Opens an email with the details filled in. You see it before it sends.")
+                }
+
                 Section("Not official") {
                     Text(Attribution.disclaimer)
                 }
@@ -90,6 +125,9 @@ struct AboutView: View {
             }
             .navigationTitle("About")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showingFeedback) {
+                FeedbackView(initialType: feedbackType)
+            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }

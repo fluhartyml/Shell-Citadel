@@ -533,32 +533,44 @@ struct TerminalView: View {
             // ONE SOURCE OF TRUTH: this flips the same flag the Settings toggle does,
             // rather than a second session-level mute that could disagree with it.
             // Two controls for one behaviour is the thing he took apart yesterday.
-            if connected || isDemo {
-                Button {
-                    if spoken.isEnabled {
-                        spoken.stop()          // silence what is mid-sentence, not just what comes next
-                        spoken.isEnabled = false
-                    } else {
-                        spoken.isEnabled = true
-                    }
-                } label: {
-                    Image(systemName: spoken.isEnabled ? "speaker.wave.2.fill" : "speaker.slash")
+            // ⚠️ NOT GATED ON `connected`. His report + three screenshots, 2026-08-31
+            // 19:03/19:09: "When not connected the mute button is missing" — the mic stayed
+            // on the row and the speaker vanished, so a disconnect took away the only way to
+            // stop the sound.
+            //
+            // The app SPEAKS WHILE DISCONNECTED and that is the whole problem: the drop
+            // messages, the "could not reach the Mac" diagnosis, and the catch-up replay on
+            // reconnect all go through `spoken`. A control that disappears exactly when the
+            // app starts talking at you unprompted is missing at the one moment it is needed.
+            //
+            // It is the same mistake the note above already argues against — an icon you
+            // cannot reach is a control you cannot undo. That note fixed the MUTED case and
+            // left the DISCONNECTED case gated. One condition, not two: the speaker is always
+            // on the row.
+            Button {
+                if spoken.isEnabled {
+                    spoken.stop()          // silence what is mid-sentence, not just what comes next
+                    spoken.isEnabled = false
+                } else {
+                    spoken.isEnabled = true
                 }
-                .buttonStyle(.plain)
-                // ⚠️ RED WHEN MUTED, NOT GREY. His call, 2026-08-31 17:25: "the no
-                // speaker icon should be red." Grey reads as "unavailable"; red reads as
-                // "off, and that is a state you chose." It also matches the colour
-                // language he proposed for the microphone in the same breath — red muted,
-                // green live — so the pair will read as a pair.
-                .foregroundStyle(spoken.isEnabled ? .green : .red)
-                .accessibilityLabel(spoken.isEnabled ? "Mute spoken output" : "Speak output aloud")
-                // ⚠️ DOES NOT INHERIT THE ROW'S caption2. His screenshot, 18:20: "On the
-                // ipad the mic and speaker are toosmall to be so close to each other."
-                // Text size and tap-target size are different problems.
-                .font(.system(size: 19))
-                .padding(.horizontal, 7)
-                .contentShape(Rectangle())
+            } label: {
+                Image(systemName: spoken.isEnabled ? "speaker.wave.2.fill" : "speaker.slash")
             }
+            .buttonStyle(.plain)
+            // ⚠️ RED WHEN MUTED, NOT GREY. His call, 2026-08-31 17:25: "the no
+            // speaker icon should be red." Grey reads as "unavailable"; red reads as
+            // "off, and that is a state you chose." It also matches the colour
+            // language he proposed for the microphone in the same breath — red muted,
+            // green live — so the pair will read as a pair.
+            .foregroundStyle(spoken.isEnabled ? .green : .red)
+            .accessibilityLabel(spoken.isEnabled ? "Mute spoken output" : "Speak output aloud")
+            // ⚠️ DOES NOT INHERIT THE ROW'S caption2. His screenshot, 18:20: "On the
+            // ipad the mic and speaker are toosmall to be so close to each other."
+            // Text size and tap-target size are different problems.
+            .font(.system(size: 19))
+            .padding(.horizontal, 7)
+            .contentShape(Rectangle())
         }
         // Live words as they are heard. Mirroring into the composer rather than a
         // separate label means he SEES what it thinks he said before it sends — the

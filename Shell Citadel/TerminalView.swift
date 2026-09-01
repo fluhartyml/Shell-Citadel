@@ -956,9 +956,30 @@ struct TerminalView: View {
                     // Only this connection's own setting decides. Off means a plain
                     // line reaches the far end, which is what every server that is not
                     // Claude needs.
-                    try await session.send(
-                        profile.stampMessages ? text + LocationStamp.shared.messageSuffix() : text,
-                        stamped: profile.stampMessages)
+                    // ⚠️ NO COORDINATE RIDES ALONG HERE ANY MORE. Michael, 2026-08-31
+                    // 20:2x: "Lets only have the gps drop."
+                    //
+                    // Location now has exactly ONE way into a message and it is the
+                    // deliberate one: + -> Drop a pin, which he taps, on purpose, when he
+                    // means to say where he is. The silent per-message stamp is gone.
+                    //
+                    // He is retiring his own feature from the 28th, and he is right to.
+                    // A location that arrives because he tapped something is a message; a
+                    // location that arrives because he typed anything is surveillance he
+                    // happens to own. The pin drop already covers the case that mattered
+                    // — being somewhere other than the desk when it counts — and it does
+                    // it with intent attached.
+                    //
+                    // ⭐ IT ALSO SIMPLIFIES REVIEW. Guideline 5.1.1 is about collection
+                    // without clear consent. With the stamp gone, location is never
+                    // gathered incidentally: no tap, no coordinate, nothing to disclose
+                    // beyond the pin drop's own purpose string.
+                    //
+                    // The stamp itself STAYS — time and device tag. Those are not
+                    // location, and they are load-bearing: the Mac's echo guard uses the
+                    // bracketed timestamp to tell his phone apart from his keyboard, and
+                    // without it his own words come back at him.
+                    try await session.send(text, stamped: profile.stampMessages)
                     // The clock starts when the message is AWAY, not when he pressed
                     // send — the upload is not part of the wait he is asking about.
                     waitingSince = Date()

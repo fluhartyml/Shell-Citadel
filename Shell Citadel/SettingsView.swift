@@ -130,7 +130,10 @@ struct SettingsView: View {
                     } header: {
                     // ⚠️ ATTACH MODE ONLY, because direct mode never stamped and
                     // must never start. A coordinate glued to `ls -la` is corruption.
-                    Toggle("Tag messages with time and place", isOn: $profile.stampMessages)
+                    // "and place" came out 2026-08-31: the stamp no longer carries a
+                    // coordinate, so the old label promised something it stopped doing.
+                    // A settings label that overstates is worse than a vague one.
+                    Toggle("Tag messages with time and device", isOn: $profile.stampMessages)
                     Text("Advanced")
                 } footer: {
                         Text("Run `tmux ls` on that machine to see session names. The spoken-text file is whatever writes plain sentences there — an interactive session redraws its screen constantly, so it cannot be read aloud directly.")

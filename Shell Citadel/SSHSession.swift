@@ -28,10 +28,11 @@ struct SSHDestination: Sendable, Equatable {
     var host: String
     var port: Int = 22
     var username: String
-    /// The tmux session name the Mac launcher creates. `Claude.command` uses "claude".
-    var tmuxSession: String = "claude"
-    /// The file Claude appends spoken sentences to, read as the voice channel.
-    var voicePath: String = "~/.claude-voice/out.txt"
+    /// The tmux session name to attach to. Neutral by default — a stranger's first run
+    /// should not arrive pre-filled with someone else's session name.
+    var tmuxSession: String = "main"
+    /// A file the far end appends plain sentences to, read as the voice channel.
+    var voicePath: String = "~/session-output.txt"
 }
 
 enum SSHSessionError: Error, LocalizedError {

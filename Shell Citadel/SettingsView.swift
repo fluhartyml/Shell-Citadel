@@ -116,13 +116,13 @@ struct SettingsView: View {
                 if profile.mode == .attach {
                     Section {
                         LabeledContent("Session") {
-                            TextField("claude", text: $profile.tmuxSession)
+                            TextField("main", text: $profile.tmuxSession)
                                 .multilineTextAlignment(.trailing)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                         }
                         LabeledContent("Spoken text") {
-                            TextField("~/.claude-voice/out.txt", text: $profile.voicePath)
+                            TextField("~/session-output.txt", text: $profile.voicePath)
                                 .multilineTextAlignment(.trailing)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()

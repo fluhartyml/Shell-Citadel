@@ -178,16 +178,16 @@ enum DemoMode {
               text: "That is the only time you type it. It is in the connections list behind the sliders now — open that in any tab and pick it, and the password comes with it.",
               isOutput: false, delay: 1.8),
 
-        .init(source: .you, text: "screen -S claude", isOutput: false, delay: 1.6),
+        .init(source: .you, text: "screen -S work", isOutput: false, delay: 1.6),
         .init(source: .claude, text: "~ %", isOutput: true, delay: 0.9),
 
         .init(source: .system,
-              text: "That made a session named claude, using screen, which is already on every Mac. The session belongs to the Mac, not to this app — so it keeps running when you close your phone, lose signal, or walk away.",
+              text: "That made a session named work, using screen, which is already on every Mac. The session belongs to the Mac, not to this app — so it keeps running when you close your phone, lose signal, or walk away.",
               isOutput: false, delay: 1.6),
 
-        .init(source: .you, text: "claude", isOutput: false, delay: 1.4),
+        .init(source: .you, text: "assistant", isOutput: false, delay: 1.4),
         .init(source: .claude,
-              text: "Welcome to Claude Code. Type your request, or /help for commands.",
+              text: "Assistant ready. Type your request, or /help for commands.",
               isOutput: true, delay: 1.0),
 
         // ⚠️ VENDOR NEUTRALITY — added 2026-08-31, and it is a SUBMISSION requirement,
@@ -226,7 +226,7 @@ enum DemoMode {
         .init(source: .system,
               text: "Closing the app now would leave all of that running. Press Control-A then D to step out of the session without stopping it.",
               isOutput: false, delay: 1.7),
-        .init(source: .claude, text: "[detached from 82263.claude]",
+        .init(source: .claude, text: "[detached from 82263.work]",
               isOutput: true, delay: 0.9),
 
         .init(source: .system,
@@ -238,14 +238,14 @@ enum DemoMode {
         .init(source: .system, text: "Caught up. Anything below this is live.",
               isOutput: false, delay: 0.9),
 
-        .init(source: .you, text: "screen -r claude", isOutput: false, delay: 1.6),
+        .init(source: .you, text: "screen -r work", isOutput: false, delay: 1.6),
         .init(source: .claude, text: "~ %", isOutput: true, delay: 0.9),
         .init(source: .system,
-              text: "Same session, hours later, nothing lost. That is the whole point of the two commands above. Forgotten the name? screen -ls lists them.",
+              text: "Same session, hours later, nothing lost. That is the whole point of the two commands above. Forgotten the name? screen -ls lists them, and tmux ls does the same for tmux.",
               isOutput: false, delay: 1.4),
 
         .init(source: .system,
-              text: "If you already use tmux, it works exactly the same way here — tmux new -s claude, and tmux attach -t claude. Nothing to install either way.",
+              text: "If you already use tmux, it works exactly the same way here — tmux new -s work, and tmux attach -t work. Nothing to install either way.",
               isOutput: false, delay: 1.6),
 
         .init(source: .system,

@@ -81,7 +81,10 @@ struct ConnectionProfile: Codable, Equatable, Sendable, Identifiable {
     // MARK: Advanced — attach mode only
 
     /// The tmux session to type into. `tmux ls` on the Mac lists these.
-    var tmuxSession: String = "claude"
+    // Neutral default, 2026-08-31. It used to be "claude" — correct for the machine
+    // this was built against and wrong for everyone else's first run. A stranger opening
+    // Settings should not find someone else's session name already typed in.
+    var tmuxSession: String = "main"
 
     /// ⚠️ OFF BY DEFAULT, AND THAT DEFAULT IS THE WHOLE POINT.
     ///
@@ -104,7 +107,10 @@ struct ConnectionProfile: Codable, Equatable, Sendable, Identifiable {
 
     /// A file on the Mac that receives plain sentences, read as the voice channel.
     /// Only meaningful in attach mode, because a redraw stream cannot be spoken.
-    var voicePath: String = "~/.claude-voice/out.txt"
+    // Same reasoning. The old default pointed at a dotfile that exists on exactly one
+    // Mac in the world. Settings explains what this field is for; it should not arrive
+    // pre-filled with an answer that cannot be right.
+    var voicePath: String = "~/session-output.txt"
 
     // MARK: - Decoding that survives the model growing
     //
@@ -129,8 +135,8 @@ struct ConnectionProfile: Codable, Equatable, Sendable, Identifiable {
         username = try c.decodeIfPresent(String.self, forKey: .username) ?? ""
         mode = try c.decodeIfPresent(ConnectionMode.self, forKey: .mode) ?? .direct
         startingDirectory = try c.decodeIfPresent(String.self, forKey: .startingDirectory) ?? ""
-        tmuxSession = try c.decodeIfPresent(String.self, forKey: .tmuxSession) ?? "claude"
-        voicePath = try c.decodeIfPresent(String.self, forKey: .voicePath) ?? "~/.claude-voice/out.txt"
+        tmuxSession = try c.decodeIfPresent(String.self, forKey: .tmuxSession) ?? "main"
+        voicePath = try c.decodeIfPresent(String.self, forKey: .voicePath) ?? "~/session-output.txt"
         stampMessages = try c.decodeIfPresent(Bool.self, forKey: .stampMessages) ?? false
     }
 

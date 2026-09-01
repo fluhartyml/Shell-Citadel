@@ -94,7 +94,11 @@ struct TerminalView: View {
     private static let waitingRowID = "waiting-row"
     @State private var showingCamera = false
     @State private var showingLibrary = false
-    @State private var pickedFromLibrary: PhotosPickerItem?
+    /// ⭐ MULTI-SELECT. Michael, 2026-09-01: "i need you to add multi photo select before
+    /// sending the screenshots" — he had a batch to send and was sending them one at a
+    /// time. An array, not an optional, because `PhotosPicker` switches to multi-select
+    /// purely on the shape of the binding.
+    @State private var pickedFromLibrary: [PhotosPickerItem] = []
     /// Shown in the composer so it is always obvious where a command will run —
     /// the one piece of state a fresh-shell-per-command design would otherwise hide.
     @State private var workingDirectory = ""
@@ -164,16 +168,25 @@ struct TerminalView: View {
                 CameraCapture { image in sendPicture(image) }
                     .ignoresSafeArea()
             }
-            .onChange(of: pickedFromLibrary) { _, item in
-                guard let item else { return }
+            .onChange(of: pickedFromLibrary) { _, items in
+                guard !items.isEmpty else { return }
                 Task {
                     // loadTransferable rather than a URL: the bytes come straight into
                     // memory and no copy is made anywhere on the phone.
-                    if let data = try? await item.loadTransferable(type: Data.self),
-                       let image = UIImage(data: data) {
-                        sendPicture(image)
+                    //
+                    // ⚠️ LOADED FIRST, SENT SECOND, AND BOTH IN ORDER. The picker hands
+                    // back the selection in the order he tapped it; decoding them all
+                    // before the first upload keeps that order intact even though the
+                    // loads finish at different times.
+                    var images: [UIImage] = []
+                    for item in items {
+                        if let data = try? await item.loadTransferable(type: Data.self),
+                           let image = UIImage(data: data) {
+                            images.append(image)
+                        }
                     }
-                    pickedFromLibrary = nil
+                    pickedFromLibrary = []
+                    await sendPictures(images)
                 }
             }
             .sheet(item: $editingProfile) { pending in
@@ -749,8 +762,11 @@ struct TerminalView: View {
         .padding(.bottom, 44)
         // Lives on the composer, not in the menu — the composer is still on screen when
         // the menu goes away, so the sheet has somewhere to be presented from.
+        // `maxSelectionCount: 0` means NO LIMIT. Deliberate — he was sending a drawer
+        // full of screenshots and any cap I picked would be a number I invented.
         .photosPicker(isPresented: $showingLibrary,
                       selection: $pickedFromLibrary,
+                      maxSelectionCount: 0,
                       matching: .images)
     }
 
@@ -1101,6 +1117,50 @@ struct TerminalView: View {
     /// Compress, push over the connection that is already open, then say where it
     /// landed. The path IS the message — Claude reads the Mac's disk directly, so
     /// nothing needs to carry the bytes onward. See `SSHSession.upload`.
+    /// Send a whole selection, IN ORDER, one at a time.
+    ///
+    /// ⚠️ SEQUENTIAL ON PURPOSE. Sixteen concurrent uploads over one SSH connection
+    /// would interleave and there is one `isBusy` flag, not a queue. Awaiting each
+    /// upload also means the transcript reads in the order he picked them.
+    ///
+    /// ⛔ THE FILENAME TRAP, and it is why this is not just a loop around `sendPicture`.
+    /// `PhotoSend.filename()` resolves to ONE SECOND (`yyyy-MM-dd-HHmm-ss`). A batch
+    /// finishes well inside a second, so every picture after the first would land on the
+    /// same name and **silently overwrite the one before it** — he would send sixteen and
+    /// find one. The index suffix below is the fix.
+    ///
+    /// A single picture keeps its plain name, so nothing about the old behaviour changes.
+    private func sendPictures(_ images: [UIImage]) async {
+        guard connected, !isBusy, !images.isEmpty else { return }
+        isBusy = true
+        let total = images.count
+        for (index, image) in images.enumerated() {
+            guard let data = PhotoSend.prepare(image) else {
+                append(.system, "Picture \(index + 1) of \(total) could not be prepared for sending.")
+                continue
+            }
+            var name = PhotoSend.filename()
+            if total > 1, name.hasSuffix(".jpg") {
+                name = String(name.dropLast(4)) + "-\(index + 1).jpg"
+            }
+            do {
+                let path = try await session.upload(data, filename: name)
+                let counter = total > 1 ? "  (\(index + 1) of \(total))" : ""
+                append(.you, "📷 \(name) — \(data.count / 1024) KB\(counter)")
+                try await session.send("📷 I sent you a picture: \(path)")
+            } catch {
+                append(.system, Diagnosis.sentence(for: error, while: .listening))
+                // Stop rather than hammer a connection that has already failed once, and
+                // say how far it got so he knows what to resend.
+                if index + 1 < total {
+                    append(.system, "Stopped after \(index) of \(total). Reconnect and send the rest.")
+                }
+                break
+            }
+        }
+        isBusy = false
+    }
+
     private func sendPicture(_ image: UIImage) {
         guard connected, !isBusy else { return }
         guard let data = PhotoSend.prepare(image) else {

@@ -45,6 +45,30 @@ struct AboutView: View {
                     }
                 }
 
+                // ⚠️ THE SPOKEN PHRASES ARE NOT SUGGESTIONS — THEY ARE THE API.
+                // Siri drops any phrase that does not contain the app name, so these
+                // must match `ShellCitadelShortcuts` in VoiceIntents.swift EXACTLY.
+                // If a phrase is edited there, edit it here in the same commit or this
+                // screen starts teaching people utterances that silently do nothing.
+                Section {
+                    VStack(alignment: .leading, spacing: 10) {
+                        phrase("Send a message with Shell Citadel",
+                               "Dictates a line and delivers it. Works with the phone locked.")
+                        phrase("Catch me up with Shell Citadel",
+                               "Reads back what has come in since you last listened.")
+                        phrase("Run a command with Shell Citadel",
+                               "Runs it and reads the answer aloud.")
+                    }
+                } header: {
+                    Text("Hands free")
+                } footer: {
+                    // Says WHY it is two steps, because the alternative reads as a bug.
+                    // A single "ask and wait" intent times out while a reply is still
+                    // being written, and an intermittent failure gets trusted, which is
+                    // worse than one that never worked.
+                    Text("Sending and listening are separate on purpose. A reply can take longer than Siri will wait, so sending confirms it arrived, and catching up reads the answer whenever it is ready.")
+                }
+
                 Section("Not official") {
                     Text(Attribution.disclaimer)
                 }
@@ -71,6 +95,19 @@ struct AboutView: View {
                     Button("Done") { dismiss() }
                 }
             }
+        }
+    }
+
+    /// One spoken phrase and what it does. The phrase is styled as the thing you SAY,
+    /// so it does not read as a heading you could paraphrase — Siri will not match a
+    /// paraphrase.
+    private func phrase(_ spoken: String, _ effect: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\u{201C}\(spoken)\u{201D}")
+                .font(.callout.weight(.medium))
+            Text(effect)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 }

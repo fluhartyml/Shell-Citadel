@@ -141,23 +141,42 @@ final class SpokenOutput: NSObject, ObservableObject, AVSpeechSynthesizerDelegat
         // forcing a number onto it makes it wobble — measured on the Mac the same day,
         // where 200 words a minute on a neural voice sounded like a tape with a slipping
         // belt. His words: "it sounds like its fighting its speed."
+        // Shut BEFORE handing the utterance over. `didStart` is the reliable signal but
+        // it is not the earliest one — there is a window between `speak` and the first
+        // callback, and on a slow start that window is audible.
+        MicGate.shared.shut()
         synthesizer.speak(utterance)
     }
 
     func stop() {
         synthesizer.stopSpeaking(at: .immediate)
+        // `.immediate` may not deliver `didCancel` at all, so the gate is reopened here
+        // rather than trusting the callback. Reopening twice is harmless; never
+        // reopening leaves him with a dead microphone and a green icon — the exact
+        // failure this file refuses to risk.
+        MicGate.shared.openAfterGrace()
         isSpeaking = false
     }
 
     // MARK: - AVSpeechSynthesizerDelegate
 
+    // ⚠️ THE GATE IS MOVED FIRST, BEFORE THE `Task`, IN ALL THREE.
+    //
+    // `isSpeaking` is @Published and can only be touched on the main actor, so setting it
+    // costs an actor hop — and the first moments of every utterance used to slip through
+    // while that hop was pending. MicGate is a lock, so it can be shut from this thread,
+    // now, with no scheduling in between. The @Published flag stays for the UI; the gate
+    // is what the audio thread actually reads.
     nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didStart u: AVSpeechUtterance) {
+        MicGate.shared.shut()
         Task { @MainActor in self.isSpeaking = true }
     }
     nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) {
+        MicGate.shared.openAfterGrace()
         Task { @MainActor in self.isSpeaking = false }
     }
     nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didCancel u: AVSpeechUtterance) {
+        MicGate.shared.openAfterGrace()
         Task { @MainActor in self.isSpeaking = false }
     }
 

@@ -207,10 +207,24 @@ final class Dictation: ObservableObject {
         let format = input.outputFormat(forBus: 0)
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            // ⚠️ DEAF WHILE THE APP IS TALKING. Without this the speaker feeds the
-            // microphone and the app holds a conversation with itself — his 18:18 report,
-            // where my own reply came back as his next message word for word.
+            // ⚠️ DEAF WHILE THE APP IS TALKING — CHECKED HERE, SYNCHRONOUSLY, ON THIS
+            // THREAD. Without it the speaker feeds the microphone and the app holds a
+            // conversation with itself: his 18:18 report, where my own reply came back
+            // as his next message word for word.
+            //
+            // The gate used to be read INSIDE the `Task` below, on the main actor. That
+            // is a race rather than a gate — the hop takes time, and a buffer captured
+            // while the app was talking could be appended after the flag had cleared.
+            // He found it still looping and asked for the strict version: "turn off when
+            // you send a reply."
+            //
+            // MicGate is a lock, so this costs two comparisons and no scheduling, and a
+            // rejected buffer is dropped BEFORE anything is queued. See MicGate.swift for
+            // why it gates the data rather than stopping the engine.
+            guard MicGate.shared.isOpen else { return }
             Task { @MainActor in
+                // Second line of defence, and cheap. If speech began during the hop, this
+                // catches what the gate could not have known about yet.
                 guard let self, !SpokenOutput.shared.isSpeaking else { return }
                 self.request?.append(buffer)
             }
@@ -346,8 +360,14 @@ final class Dictation: ObservableObject {
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
             Task { @MainActor in
                 guard let self, mine == self.generation, self.isListening else { return }
-                if SpokenOutput.shared.isSpeaking {
+                if SpokenOutput.shared.isSpeaking || !MicGate.shared.isOpen {
                     // Anything captured while the app was talking is the app's own voice.
+                    //
+                    // The gate is consulted here TOO, not just the published flag: it
+                    // stays shut for a grace period after speech ends, which is what
+                    // catches the room's reverb and audio the recogniser had already
+                    // buffered. Without the tail, the end of my own sentence arrives as
+                    // his next message.
                     self.partial = ""
                     return
                 }

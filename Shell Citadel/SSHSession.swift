@@ -244,9 +244,31 @@ actor SSHSession {
         //
         // → the same failure family as the two messages that died in wedged tmux
         //   processes on 2026-08-29: delivery that reports success and loses content.
+        // ⚠️ THE PAUSE BEFORE Enter IS LOAD-BEARING — it is the other edge of `-p`.
+        //
+        // Michael, 2026-08-31 19:4x: "i typed that previous message on my iphone and it
+        // appeared in the chat line on tmux claude so i pressed enter to send it." Then,
+        // two messages later, "that time it didnt go to the tmux chat bar" — so it is
+        // INTERMITTENT, which is the signature of a race rather than a broken command.
+        //
+        // `paste-buffer` returns once tmux has handed the bytes to the pane, NOT once the
+        // receiving program has finished settling the bracketed-paste block. Fire Enter
+        // in that gap and it lands INSIDE the block, where a TUI reads it as a literal
+        // newline in the pasted text instead of a submit. His message then sits in the
+        // composer waiting for a keystroke from him — delivery that reports success and
+        // quietly makes him do the last step by hand.
+        //
+        // ⚠️ DO NOT "FIX" THIS BY DROPPING `-p`. That is the trade, and the other side of
+        // it is worse: without `-p` his 455-character message arrived missing its first
+        // eighteen characters (see the note above). Losing the front of a message is
+        // silent; a stranded Enter is at least visible on screen. Keep both — the wrapper
+        // AND the daylight after it.
+        //
+        // 0.3s is imperceptible per message and generous next to the settle it covers.
         _ = try await run("""
             \(tmux) set-buffer -b \(buffer) -- \(body) \
               && \(tmux) paste-buffer -d -p -b \(buffer) -t \(session) \
+              && sleep 0.3 \
               && \(tmux) send-keys -t \(session) Enter
             """)
     }

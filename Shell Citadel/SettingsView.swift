@@ -123,6 +123,14 @@ struct SettingsView: View {
                         }
                         LabeledContent("Spoken text") {
                             TextField("~/session-output.txt", text: $profile.voicePath)
+                        }
+                        LabeledContent("Photo folder") {
+                            // Where + -> a photograph lands on the far end, relative to
+                            // its home directory. A setting rather than a constant
+                            // because it creates a real directory on someone else's
+                            // machine, and they should get to name it.
+                            TextField("Uploads", text: $profile.uploadFolder)
+                                .autocorrectionDisabled()
                                 .multilineTextAlignment(.trailing)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()

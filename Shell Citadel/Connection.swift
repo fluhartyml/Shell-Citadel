@@ -112,6 +112,22 @@ struct ConnectionProfile: Codable, Equatable, Sendable, Identifiable {
     // pre-filled with an answer that cannot be right.
     var voicePath: String = "~/session-output.txt"
 
+    /// The folder on the far end that uploaded photographs land in, relative to that
+    /// machine's home directory.
+    ///
+    /// ⚠️ IT USED TO BE A `static let` READING "Claude Inbox", AND THAT WAS THE BUG.
+    /// Michael, 2026-08-31: "where does it upload if a person uses another server or
+    /// tmux with another chatbot?" — it ran `mkdir -p $HOME/Claude Inbox` on WHOEVER'S
+    /// server you connected to. A vendor-named directory created in a stranger's home
+    /// folder, with no way for them to opt out, because a constant is not a setting.
+    /// His answer when he heard it: "yes then make it user configurable."
+    ///
+    /// ⚠️ THE DEFAULT IS SPLIT ON PURPOSE — SEE THE DECODER. A profile saved BEFORE this
+    /// change keeps "Claude Inbox", because his Mac pipeline reads that exact path and a
+    /// silent rename would send his photographs somewhere nothing is watching. New
+    /// profiles get the neutral name. Nobody's working setup moves.
+    var uploadFolder: String = "Uploads"
+
     // MARK: - Decoding that survives the model growing
     //
     // Swift's synthesised decoder requires EVERY key to be present, even one with a
@@ -138,6 +154,11 @@ struct ConnectionProfile: Codable, Equatable, Sendable, Identifiable {
         tmuxSession = try c.decodeIfPresent(String.self, forKey: .tmuxSession) ?? "main"
         voicePath = try c.decodeIfPresent(String.self, forKey: .voicePath) ?? "~/session-output.txt"
         stampMessages = try c.decodeIfPresent(Bool.self, forKey: .stampMessages) ?? false
+        // ⚠️ FALLS BACK TO THE OLD NAME, NOT THE NEW DEFAULT. An absent key means a
+        // profile that predates this field — which is his — and those uploaded into
+        // "Claude Inbox". Defaulting them to "Uploads" here would quietly relocate his
+        // photographs away from the folder the apartment reads.
+        uploadFolder = try c.decodeIfPresent(String.self, forKey: .uploadFolder) ?? "Claude Inbox"
     }
 
     var isComplete: Bool {
@@ -152,7 +173,8 @@ struct ConnectionProfile: Codable, Equatable, Sendable, Identifiable {
             port: port,
             username: username.trimmingCharacters(in: .whitespaces),
             tmuxSession: tmuxSession,
-            voicePath: voicePath
+            voicePath: voicePath,
+            uploadFolder: uploadFolder
         )
     }
 }

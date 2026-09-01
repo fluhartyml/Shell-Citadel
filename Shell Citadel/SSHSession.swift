@@ -33,6 +33,8 @@ struct SSHDestination: Sendable, Equatable {
     var tmuxSession: String = "main"
     /// A file the far end appends plain sentences to, read as the voice channel.
     var voicePath: String = "~/session-output.txt"
+    /// Folder on the far end for uploaded photographs, relative to its home directory.
+    var uploadFolder: String = "Uploads"
 }
 
 enum SSHSessionError: Error, LocalizedError {
@@ -267,7 +269,11 @@ actor SSHSession {
     /// of a medical document or of the inside of his house must not become a commit by
     /// accident. Michael's own classification scheme treats anything untagged as
     /// TopSecret, and this folder inherits that.
-    static let inboxFolderName = "Claude Inbox"
+    /// ⚠️ THIS USED TO BE THE ONLY ANSWER, AND IT WAS THE WRONG SHAPE.
+    /// It is now `ConnectionProfile.uploadFolder` — a per-connection setting — because a
+    /// constant cannot be opted out of. Kept only as the value old profiles migrate to;
+    /// see the decoder in Connection.swift.
+    static let legacyInboxFolderName = "Claude Inbox"
 
     /// Push bytes to the Mac over the connection that is ALREADY OPEN.
     ///
@@ -290,7 +296,12 @@ actor SSHSession {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !home.isEmpty else { throw SSHSessionError.notConnected }
 
-        let directory = "\(home)/\(Self.inboxFolderName)"
+        // Empty is not a valid folder and an empty setting must not put photographs
+        // loose in someone's home directory, so a blank field falls back rather than
+        // resolving to `$HOME/`.
+        let folder = destination?.uploadFolder.trimmingCharacters(in: .whitespacesAndNewlines)
+        let chosen = (folder?.isEmpty == false ? folder! : "Uploads")
+        let directory = "\(home)/\(chosen)"
         // `mkdir -p` over the exec channel rather than SFTP's createDirectory, because
         // mkdir is idempotent and createDirectory throws when the folder already exists —
         // which it will, every time after the first.

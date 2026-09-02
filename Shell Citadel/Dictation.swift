@@ -76,8 +76,19 @@ final class Dictation: ObservableObject {
 
     /// Seconds of silence that mean "I have finished talking."
     ///
-    /// Half-second steps, 0.5 to 5, his ruling. Two seconds is the default because it
-    /// is long enough to think mid-sentence and short enough not to feel broken.
+    /// Half-second steps, 0.5 to 5, his ruling.
+    ///
+    /// ⚠️ DEFAULT CUT 2.0 → 1.5 ON 2026-09-02. His words: "Two seconds is an eternity."
+    /// The default protects whoever never opens Settings, and the two failures are not
+    /// symmetric: too long reads as SLOW, too short reads as BROKEN — fragmented
+    /// half-sentences that look like the feature does not work. So the default errs long
+    /// and the stepper takes it down. Clause pauses run 300–600 ms and sentence pauses
+    /// 500–1000 ms, which puts 1.0 s at the top of the range where an ordinary
+    /// think-mid-sentence pause starts getting clipped; 1.5 clears it with margin.
+    /// He runs 1.0 on his own devices — he is not the default user.
+    ///
+    /// ⛔ This value must NOT be tuned to dodge the run-boundary wipe (see `partial`
+    /// assignment below). That is a separate fault and gets fixed on its own merits.
     @Published var pauseSeconds: Double {
         didSet { UserDefaults.standard.set(pauseSeconds, forKey: Key.pause) }
     }
@@ -129,7 +140,7 @@ final class Dictation: ObservableObject {
 
     private init() {
         let stored = UserDefaults.standard.double(forKey: Key.pause)
-        pauseSeconds = stored > 0 ? stored : 2.0
+        pauseSeconds = stored > 0 ? stored : 1.5
     }
 
     // MARK: - Arming

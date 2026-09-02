@@ -56,7 +56,36 @@ final class Dictation: ObservableObject {
     @Published private(set) var isListening = false
 
     /// What has been heard so far in this utterance, shown live in the composer.
+    ///
+    /// ⚠️ DERIVED, NOT ASSIGNED, since 2026-09-02. It is `committed` + the run in flight.
+    /// See `committed` for why.
     @Published private(set) var partial = ""
+
+    /// ⚠️ HIS BUG, 2026-09-02: "when i say something then pause for a moment but not long
+    /// enough to send it replaces my previous thoughts with the new ones."
+    ///
+    /// **The recogniser segments underneath us.** On-device recognition finalises after
+    /// its own short silence — shorter than `pauseSeconds` — and the NEXT run starts its
+    /// transcript over from empty. The old code assigned that fresh transcript straight
+    /// into `partial`, so a mid-sentence pause did not merely fail to extend the
+    /// sentence: **it erased the first half of it.**
+    ///
+    /// So one utterance is now potentially several runs. `committed` holds the runs that
+    /// have already finalised; the callback only ever assigns the run in flight. Run
+    /// boundaries stop being visible to him, which is the whole point — he was never
+    /// starting a new thought, the microphone just thought he was.
+    ///
+    /// **This is why "leave the microphone on" did not help him:** the mic stayed open
+    /// the entire time. It is the RECOGNISER that restarts, not the audio.
+    private var committed = ""
+
+    /// The live text: everything finalised this utterance, plus the run still going.
+    private func recomposePartial(runText: String) {
+        let joined = committed.isEmpty ? runText
+                   : runText.isEmpty  ? committed
+                   : committed + " " + runText
+        partial = joined.trimmingCharacters(in: .whitespaces)
+    }
 
     /// ⚠️ PROOF THAT SOUND IS ARRIVING, not a claim that it might be.
     ///
@@ -266,6 +295,7 @@ final class Dictation: ObservableObject {
         silenceTimer = nil
         teardown()
         isListening = false
+        committed = ""
         partial = ""
         level = 0
         AudioServicesPlaySystemSound(1114)   // the matching "end recording" tone
@@ -319,6 +349,8 @@ final class Dictation: ObservableObject {
     /// The pause elapsed. Hand over what was said and start listening for the next thing.
     private func commit() {
         let text = partial.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Both halves, or the next utterance opens carrying the last one's words.
+        committed = ""
         partial = ""
 
         if Self.isCancelled(text) {
@@ -359,11 +391,26 @@ final class Dictation: ObservableObject {
                 guard let self, mine == self.generation, self.isListening else { return }
                 if SpokenOutput.shared.isSpeaking {
                     // Anything captured while the app was talking is the app's own voice.
+                    // ⚠️ Clears BOTH halves, which preserves the pre-2026-09-02 behaviour
+                    // exactly. Making this pause-instead-of-destroy is his separate idea
+                    // ("maybe we should pause the dictation and not destroy it") and is
+                    // deliberately NOT bundled in with the run-boundary fix.
+                    self.committed = ""
                     self.partial = ""
                     return
                 }
                 if let result {
-                    self.partial = result.bestTranscription.formattedString
+                    let runText = result.bestTranscription.formattedString
+                    if result.isFinal {
+                        // This run is closed. Bank it and start the next one empty, so
+                        // the words survive a pause he did not intend as a send.
+                        self.committed = self.committed.isEmpty
+                            ? runText
+                            : self.committed + " " + runText
+                        self.recomposePartial(runText: "")
+                    } else {
+                        self.recomposePartial(runText: runText)
+                    }
                     // EVERY new word restarts the clock. The pause means "silence since
                     // the last word", not "time since I started talking" — otherwise a
                     // long sentence would send itself out from under him mid-thought.

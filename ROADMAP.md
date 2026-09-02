@@ -666,3 +666,26 @@ other half of the same day's problem.
 
 **⚠️ Nothing built. The API surface above is written from working knowledge on 2026-08-31 and has
 not been checked against the OS 27 SDK.** → [[feedback_apple_is_source_of_truth]]
+
+---
+
+## 🔇 BUG — the speaker goes green over a dead audio tap (2nd sighting, 2026-09-01 17:5x)
+
+**His report:** *"My iPhone stopped talking"* → *"Speaker id green and volume is up"* → he fixed it
+himself: ***"I muted and unmuted."***
+
+**So the speech engine had stopped while the control still read enabled.** Mute/unmute rearms it.
+That is the same shape flagged on 2026-08-31 as the 18:12 bug — *"shows green over a dead audio
+tap"* — and this is the first time it has been seen **without** a lock/unlock preceding it, with a
+confirmed workaround.
+
+**What it costs him:** the icon is the only feedback, and it is wrong. He found this by noticing
+**silence**, which means every reply in the gap was lost as audio with nothing on screen saying so.
+
+**⚠️ AND MY DIAGNOSIS WAS WRONG, which is worth keeping.** I read `netstat` for established
+connections on port 22, found none, and told him the app was disconnected and to tap Connect.
+**A snapshot of a port is not a state** — the app's SSH work may be short-lived, and `sshd` logged
+nothing in either direction to corroborate. **The fix he applied proves it was the audio path, not
+the link.** Do not diagnose this bug from the network again.
+
+**Not fixed, not investigated, no consent asked or given** — recorded only.

@@ -66,6 +66,8 @@ struct TerminalTabsView: View {
     @State private var companion: UUID?
     /// Which pane a tap on a chip fills. Ignored unless the split is showing.
     @State private var focusedPane: Pane = .primary
+    /// Bumped when stored defaults change, purely to re-evaluate the chip labels.
+    @State private var labelRevision = 0
 
     private enum Pane { case primary, secondary }
 
@@ -94,6 +96,15 @@ struct TerminalTabsView: View {
             }
         }
         .onAppear(perform: restore)
+        // A chip's label is read from the profile the connection sheet writes, and that
+        // write happens inside a child view, which does not redraw this one. Without this
+        // the tab keeps its old label until something else here happens to change.
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+            // Bumping state re-evaluates body, which re-reads every chip's label.
+            // NOT an .id() — that would rebuild the tree and destroy the live
+            // SSHSessions the TerminalViews hold as @State. See the note at the top.
+            labelRevision &+= 1
+        }
         .onChange(of: tabs) { _, _ in persist() }
         .onChange(of: tabs) { _, new in
             // A closed tab must not stay wired to a pane.
@@ -199,11 +210,33 @@ struct TerminalTabsView: View {
         .accessibilityLabel(showingSplit ? "Show one terminal" : "Show two terminals side by side")
     }
 
+    /// The label a chip shows: the connection's own name, exactly as it reads in the
+    /// connection sheet, or "remote" until one is given.
+    ///
+    /// Derived rather than stored. `TerminalTab.name` was set once at creation and never
+    /// written again, so every tab said "New" forever no matter what it was connected to.
+    /// Reading the profile the sheet already persists means renaming a connection renames
+    /// its tab with no bookkeeping to keep in sync.
+    private func label(for tab: TerminalTab) -> String {
+        // The first tab kept the original un-suffixed key; the rest are per-tab.
+        // Same resolution as the TerminalView construction above.
+        let key = tab.id == tabs.first?.id ? "connectionProfile" : tab.profileKey
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let profile = try? JSONDecoder().decode(ConnectionProfile.self, from: data)
+        else { return "remote" }
+        let name = profile.name.trimmingCharacters(in: .whitespaces)
+        // "My Mac" is the untouched factory default, so it names nothing. Treated as
+        // unconfigured here for the same reason the library treats it that way when it
+        // decides whether to save a connection under its host instead.
+        return (name.isEmpty || name == "My Mac") ? "remote" : name
+    }
+
     private func tabChip(_ tab: TerminalTab) -> some View {
         // "Selected" means on screen, which is two tabs while split.
         let isSelected = tab.id == selection || (showingSplit && tab.id == companion)
+        let title = label(for: tab)
         return HStack(spacing: 5) {
-            Text(tab.name)
+            Text(title)
                 .font(TerminalFont.mono(.footnote))
                 .lineLimit(1)
             if tabs.count > 1 {
@@ -214,7 +247,7 @@ struct TerminalTabsView: View {
                         .font(.system(size: 9, weight: .bold))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Close \(tab.name)")
+                .accessibilityLabel("Close \(title)")
             }
         }
         .padding(.horizontal, 10)

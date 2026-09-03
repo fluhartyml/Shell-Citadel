@@ -122,6 +122,29 @@ struct TerminalView: View {
     // username and mode. The default keeps the pre-tabs key, so an existing install opens
     // its first tab already configured instead of forgetting his Mac.
     @AppStorage private var storedProfile: Data
+
+    // ── THE HINT NEEDS NO STORED STATE AT ALL, and getting there took three passes.
+    //
+    // First: show it once, ever. He corrected the scope — *"when i say first it is the
+    // first time i open the app for the day not only the first time i have ever opened
+    // the app after the forst download."*
+    // Then: a stored day compared to today's, since he was right that a per-day rule
+    // *"would be natural and not require an explicit trigger"* — a date, not a flag, so
+    // nothing could wedge on or off.
+    // Then he removed the last of it: *"it can persist all day no timer needed / it may
+    // dake a dum user all day to get it right."*
+    //
+    // ⭐ AND THAT IS THE CORRECT READING OF THE PROBLEM. A hint suppressed after one
+    // showing assumes the reader got it the first time. Someone still fighting with an
+    // address at four in the afternoon needs it on THIS open, not tomorrow's. So the hint
+    // is not an announcement with a schedule — it is the resting state of a screen that
+    // has nothing on it yet, and it costs one line of transcript on a screen that is
+    // otherwise empty.
+    //
+    // ⛔ SO THERE IS NOTHING PERSISTED HERE. No stamp, no flag, no timer, nothing to
+    // migrate and nothing to get stuck. It disappears the moment the transcript has real
+    // content in it, which is exactly when it stops being needed.
+
     @Environment(\.scenePhase) private var scenePhase
     /// Which pair of tones to use. The app follows the system appearance by his ruling
     /// ("i want the background to be system light or dark mode"), so the text has to
@@ -194,6 +217,9 @@ struct TerminalView: View {
                     profile = finished
                     password = secret
                     persistProfile()
+                    // Same rule on this door: the password screen is the other place a
+                    // typed connection is committed, and it saves on both outcomes.
+                    ConnectionLibrary.shared.remember(finished)
                     if finished.isComplete && !secret.isEmpty { connect() }
                 }
             }
@@ -1326,6 +1352,13 @@ struct TerminalView: View {
         next.mode = .direct          // a typed ssh line is always a plain shell
         profile = next
 
+        // ⭐ THE ATTEMPT ITSELF IS WORTH KEEPING, not just a successful one. Until today a
+        // typed line lived only in this tab, where the fields are read-only and the
+        // sliders open a library that never received it — so one typo cost the whole line.
+        // The library normalises on the way in, so what lands there is already cleaned up
+        // even though the attempt about to run is not. See ConnectionLibrary.remember.
+        ConnectionLibrary.shared.remember(next)
+
         if let saved = CredentialStore.password(for: next), !saved.isEmpty {
             password = saved
             connect()
@@ -1465,10 +1498,37 @@ struct TerminalView: View {
             password = CredentialStore.password(for: decoded) ?? ""
         }
         if lines.isEmpty {
+            // ⬆️ ABOVE THE STATUS LINE, at his instruction: *"this screen is where it
+            // should say enter user@myhost.local above -ready to connect to ..."*
+            appendOpeningHint()
             append(.system, profile.isComplete
                    ? "Ready. Connect to \(profile.host)."
                    : "Dumb terminal mode — please use sliders to configure first.")
         }
+    }
+
+    /// One short paragraph at the top of an empty transcript.
+    ///
+    /// ⭐ THE TRANSCRIPT IS THE RIGHT SURFACE AND THE COMPOSER IS NOT — his point, and the
+    /// reason is mechanical: this area wraps, the composer row cannot. The placeholder had
+    /// been carrying the entire instruction and was being clipped to `ssh user@h…`, one
+    /// character into the thing it was teaching. A hint with room to wrap can also carry
+    /// the PRECONDITION, which is the half a first-timer actually trips on — his own
+    /// phrasing was *"for a computer with sharing turned on"*, and the syntax is guessable
+    /// where "sharing is off" is not.
+    ///
+    /// ⬜ DELIBERATELY ONE FIXED HINT, NOT A ROTATION. He raised the rotation himself and
+    /// then named its cost — *"a daily cycle sounds interesting but opens the dor for what
+    /// gets displayed?"* A rotation cannot guarantee that the one thing a stuck user needs
+    /// is the thing shown that day. If a set is ever added, this hint should stay pinned
+    /// until a connection has actually succeeded, and the rotation take the slot after.
+    ///
+    /// The set already exists as material, from this morning: Remote Login has to be on ·
+    /// user comes before the `@` · a `.local` name carries no apostrophe · SSH wants the
+    /// short account name, not a full name · delete is a long press · Disconnect hangs up
+    /// the phone and leaves the tmux session running. Same list as the wiki's.
+    private func appendOpeningHint() {
+        append(.system, "Enter user@myhost.local to connect. The other computer needs Remote Login turned on in its Sharing settings. Or tap the sliders to pick a saved connection.")
     }
 
     private func persistProfile() {

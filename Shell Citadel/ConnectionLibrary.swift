@@ -29,8 +29,14 @@ final class ConnectionLibrary: ObservableObject {
 
     // MARK: - Mutation
 
+    // ⛔ EVERY WRITE GOES THROUGH `normalized()`. One choke point, so a connection cannot
+    // enter the library dirty no matter which door it came in by — the `+` editor, the
+    // typed `ssh` line, or the one-time migration. Michael, 2026-09-03: *"when it saves to
+    // the connections good or unsuccessful log in it normalizes and strips illegal
+    // characters."* Doing it at each call site instead is how one of them gets missed.
+
     func add(_ profile: ConnectionProfile) {
-        connections.append(profile)
+        connections.append(profile.normalized())
         save()
     }
 
@@ -38,7 +44,35 @@ final class ConnectionLibrary: ObservableObject {
         guard let i = connections.firstIndex(where: { $0.id == profile.id }) else {
             add(profile); return
         }
-        connections[i] = profile
+        connections[i] = profile.normalized()
+        save()
+    }
+
+    /// Record a connection that was ATTEMPTED — whether or not the login worked.
+    ///
+    /// Michael, 2026-09-03, describing the corner this morning left him in: a typed `ssh`
+    /// line never reached this library, the screen showing it had read-only fields, and
+    /// the sliders open a list that never received it. So a single typo — `macbool` for
+    /// `macbook`, and the host and user reversed — could only be answered by retyping the
+    /// whole line. His ruling: it saves on **both** outcomes, *"good or unsuccessful log
+    /// in"*, which turns a dead end into an entry he can open and correct.
+    ///
+    /// Matching is on the MACHINE rather than the id, because a typed line arrives with a
+    /// fresh id every time; without that, three attempts at one Mac leave three rows.
+    /// The existing id is kept so anything already running that entry keeps pointing at it.
+    func remember(_ profile: ConnectionProfile) {
+        let clean = profile.normalized()
+        guard !clean.host.isEmpty else { return }
+        if let i = connections.firstIndex(where: { $0.isSameMachine(as: clean) }) {
+            var merged = clean
+            merged.id = connections[i].id
+            // Its NAME is not overwritten: if he has renamed the entry, a later typed
+            // attempt at the same machine must not rename it back.
+            merged.name = connections[i].name
+            connections[i] = merged
+        } else {
+            connections.append(clean)
+        }
         save()
     }
 

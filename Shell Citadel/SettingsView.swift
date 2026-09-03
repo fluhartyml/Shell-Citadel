@@ -23,12 +23,14 @@ struct SettingsView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    /// SSH user names cannot contain a space. Michael's saved Mac held his macOS *full*
-    /// name — "Michael Fluharty" — instead of his short name, and the only symptom was a
-    /// connection that never worked. A field that can be silently wrong deserves to say so.
-    private var usernameLooksWrong: Bool {
-        profile.username.contains(where: \.isWhitespace)
-    }
+    // ⬜ `usernameLooksWrong` LIVED HERE AND IS GONE ON PURPOSE — see the Sign in section.
+    //
+    // Its reasoning was sound and is worth keeping: Michael's saved Mac held his macOS
+    // *full* name, "Michael Fluharty", instead of his short name, and the only symptom was
+    // a connection that never worked. A field that can be silently wrong deserves to say
+    // so. What changed is WHERE it says it — a permanent line in the footer rather than an
+    // orange alert that appears mid-typing and reads as a defect — and that the save now
+    // repairs the value instead of only complaining about it.
 
     var body: some View {
         NavigationStack {
@@ -73,18 +75,37 @@ struct SettingsView: View {
                             .multilineTextAlignment(.trailing)
                             .textContentType(.password)
                     }
-                    if usernameLooksWrong {
-                        Label(
-                            "A user name cannot contain a space. This looks like your full name — SSH wants your short account name, the one your home folder is named after.",
-                            systemImage: "exclamationmark.triangle.fill"
-                        )
-                        .font(.footnote)
-                        .foregroundStyle(.orange)
-                    }
+                    // ⛔ THIS USED TO BE AN ORANGE ⚠️ THAT APPEARED WHEN THE NAME HELD A
+                    // SPACE, AND IT READ AS A FAULT IN THE APP.
+                    //
+                    // Michael, 2026-09-03, from the iPhone 16e: *"The red caution looks
+                    // like a bug."* He was right, and the timing made it worse — AutoFill
+                    // had just filled `michael fluharty` from his Passwords vault, so the
+                    // app appeared to be rejecting what it had itself put in the field one
+                    // tap earlier. A triangle and a hot colour say *something is broken*,
+                    // not *here is how SSH names work*.
+                    //
+                    // It is also redundant now: `ConnectionProfile.normalized()` strips the
+                    // space at the save, and in his case that produces `michaelfluharty`,
+                    // which is his real short account name — so the save does not merely
+                    // make the value legal, it makes it correct. His ruling on the whole
+                    // class: *"i dont think warnings, it just fails silently but when it
+                    // saves to connections it normalizes and strips illegal characters."*
+                    //
+                    // ⚠️ BUT THE SENTENCE ITSELF IS NOT DELETED. Full-name-instead-of-short-
+                    // name is the mistake that cost him this morning, and three credentials
+                    // in his vault are variants of it. So the explanation moves into the
+                    // footer below, in the same grey as everything else, and it is ALWAYS
+                    // there rather than appearing on a keystroke — documentation cannot
+                    // startle you, an alert that pops in can.
+                    // → [[feedback_never_satisfy_a_request_by_deleting_the_work]]
                 } header: {
                     Text("Sign in")
                 } footer: {
-                    Text("Tap the password field to fill it from Passwords. It is kept in this device's Keychain — never in iCloud, never in a backup. On a Mac, turn on Remote Login in System Settings → General → Sharing; on a Pi, make sure the SSH service is enabled.")
+                    // SHORTENED AT HIS WORD, 2026-09-03: *"You are too verbous"* / *"Shorten the
+                    // text."* Four sentences to three, and "the other machine" became
+                    // "the remote server" — his correction, and the more precise term.
+                    Text("Short account name, no spaces. Password stays on this device. The remote server needs Remote Login on.")
                 }
 
                 Section {

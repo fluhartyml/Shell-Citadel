@@ -199,10 +199,29 @@ final class TerminalAppearance: ObservableObject {
     }
 
     /// The point size at which `cols` characters exactly fill `width`.
+    /// ⛔ THE SMALLEST SIZE A FIT IS ALLOWED TO PRODUCE.
+    ///
+    /// Michael, 2026-09-03, opening the app cold on an iPhone 11 Pro: *"bothe could use a
+    /// larger font to start out."* The font size was never the cause. `cols` is seeded to
+    /// **85** — measured off his Terminal.app window on his Mac — and in `.columns` mode the
+    /// column count is authoritative, so it OVERRIDES his 36pt. Eighty-five characters
+    /// across a phone's ~343 points of transcript width is **four points of width per
+    /// character**, and the old floor of 6 is roughly where that lands.
+    ///
+    /// ⚠️ THIS DELIBERATELY BREAKS THE COLUMN PROMISE RATHER THAN READABILITY. Below this
+    /// size the fit stops shrinking and the text wraps instead — fewer columns than asked
+    /// for, but legible. That is not a silent lie: `columnsInForce` already reports what
+    /// really fits, so Settings tells him the truth either way.
+    ///
+    /// A seed that knew the difference between a phone and a Mac would be the deeper fix,
+    /// but re-seeding resets stored colours on EVERY device, including the iPad. A floor
+    /// costs nothing already chosen.
+    static let smallestReadable = 13.0
+
     static func sizeToFit(columns: Int, width: Double) -> Double {
         guard columns > 0, width > 0 else { return 13 }
         let unit = advanceWidth(at: 100)          // linear in point size
-        return max(6, min(60, (width / Double(columns)) / (unit / 100)))
+        return max(smallestReadable, min(60, (width / Double(columns)) / (unit / 100)))
     }
 
     /// One line's height at a given point size. Same trick as `advanceWidth` — measured
@@ -222,7 +241,7 @@ final class TerminalAppearance: ObservableObject {
     static func sizeToFit(rows: Int, height: Double) -> Double {
         guard rows > 0, height > 0 else { return 13 }
         let unit = lineHeight(at: 100)
-        return max(6, min(60, (height / Double(rows)) / (unit / 100)))
+        return max(smallestReadable, min(60, (height / Double(rows)) / (unit / 100)))
     }
 
     /// How many whole characters fit at the current size.

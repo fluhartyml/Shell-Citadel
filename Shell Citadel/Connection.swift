@@ -161,6 +161,63 @@ struct ConnectionProfile: Codable, Equatable, Sendable, Identifiable {
         uploadFolder = try c.decodeIfPresent(String.self, forKey: .uploadFolder) ?? "Claude Inbox"
     }
 
+    // MARK: - Normalising, done at the SAVE and nowhere else
+    //
+    // Michael, 2026-09-03: *"when it saves to the connections good or unsuccessful log in
+    // it strips ' and cases"* — and, on the two halves being different:
+    // *"for user name it preserves case but strips a space bar."*
+    //
+    // ⚠️ HE RULED OUT WARNING HIM. *"i dont think warnings, it just fails silently but when
+    // it saves to connections it normalizes and strips illegal characters."* So there is no
+    // message here and nothing is refused at the keyboard: a login that was going to fail
+    // still fails, and the COPY that lands in Connections is the clean one, which is what
+    // makes it fixable afterwards instead of only retypeable.
+    //
+    // WHY THIS IS NOT DONE AT THE KEYBOARD. That field is three fields wearing one coat —
+    // a destination while disconnected, a shell command in direct mode, English to Claude
+    // in attach mode. An apostrophe is illegal in the first and load-bearing in the other
+    // two (`echo 'hi'`, `don't`). Blocking the character would fix one and break two.
+    //
+    // WHY THE TWO HALVES DIFFER, which is the part that could break a real login:
+    //   HOST — case-INsensitive by definition, so lowercasing is safe. macOS does this
+    //          itself: "Michael's MacBook Air" becomes `Michaels-MacBook-Air`, apostrophe
+    //          and spaces gone. Matching that is copying Apple, not inventing a rule.
+    //   USER — a Unix account IS case-sensitive. `MFluharty` and `mfluharty` are two
+    //          different accounts, so lowercasing could break a login that would otherwise
+    //          have worked. Only the space goes, because a space is never legal in one.
+
+    /// Legal in a host name: letters, digits, hyphen, dot. Everything else is dropped.
+    /// Deliberately narrow — this is the set macOS itself produces for a `.local` name,
+    /// and it covers an IPv4 address and a Tailscale name unchanged.
+    private static let hostAllowed = CharacterSet.alphanumerics
+        .union(CharacterSet(charactersIn: "-."))
+
+    /// A cleaned copy. Pure — nothing here reaches back into stored state, so it is safe
+    /// to call on anything, twice, in any order.
+    func normalized() -> ConnectionProfile {
+        var copy = self
+        copy.host = String(
+            host.trimmingCharacters(in: .whitespacesAndNewlines)
+                .unicodeScalars
+                .filter { Self.hostAllowed.contains($0) }
+                .map(Character.init)
+        ).lowercased()
+        // Case preserved on purpose. See above.
+        copy.username = username
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .filter { !$0.isWhitespace }
+        copy.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return copy
+    }
+
+    /// Same machine, regardless of what the entry is called. Used so a second attempt at
+    /// a Mac updates the entry rather than leaving a second one beside it — three fumbled
+    /// tries at the same address should not leave three rows to clean up.
+    func isSameMachine(as other: ConnectionProfile) -> Bool {
+        let a = normalized(), b = other.normalized()
+        return a.host == b.host && a.username == b.username && a.port == b.port
+    }
+
     var isComplete: Bool {
         !host.trimmingCharacters(in: .whitespaces).isEmpty
         && !username.trimmingCharacters(in: .whitespaces).isEmpty

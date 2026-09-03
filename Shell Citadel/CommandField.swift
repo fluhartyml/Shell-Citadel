@@ -146,6 +146,11 @@ struct CommandField: UIViewRepresentable {
         field.delegate = context.coordinator
 
         applyTraits(to: field)
+        // ⚠️ A NEW COORDINATOR IS NOT A NEW REQUEST. This started at 0, so any standing
+        // `focusRequest` — and it starts at 1 — looked like a fresh ask the moment SwiftUI
+        // rebuilt this representable, and the field grabbed the caret again. Seeding it
+        // with the current value means only a genuine INCREMENT after creation counts.
+        context.coordinator.lastFocusRequest = focusRequest
         field.returnKeyType = .send
 
         // His desktop terminal face, not the system mono — the whole point is that what he
@@ -184,7 +189,20 @@ struct CommandField: UIViewRepresentable {
     private func focus(_ field: UITextField, _ coordinator: Coordinator) {
         guard field.isEnabled else { return }
         DispatchQueue.main.async {
-            guard field.window != nil, !field.isFirstResponder else { return }
+            guard let window = field.window, !field.isFirstResponder else { return }
+            // ⛔ NEVER TAKE THE CARET OUT FROM UNDER A SHEET.
+            //
+            // `window != nil` was the only test, and it stays true while a sheet is
+            // presented — the terminal is simply behind it. So tapping the Password
+            // field in Connection settings handed the caret straight back to this
+            // composer. Michael, 2026-09-03, on the 16e: "the cursor blinks once and
+            // then the iphone takes back control of the keyboard and removes the
+            // cursor i can see it every tim i tap the password foeld."
+            //
+            // A presented sheet gets its own key window, so requiring this field's
+            // window to be the key one is exactly the question being asked: is the
+            // thing I am about to steal focus for the thing on top?
+            guard window.isKeyWindow else { return }
             field.becomeFirstResponder()
         }
         coordinator.lastFocusRequest = focusRequest

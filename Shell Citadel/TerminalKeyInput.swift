@@ -31,7 +31,20 @@ struct TerminalKeyInput: UIViewRepresentable {
 
     func updateUIView(_ v: KeyCatcher, context: Context) {
         v.onBytes = onBytes
-        if isFocused, !v.isFirstResponder { v.becomeFirstResponder() }
+        // ⛔ NOT WHILE SOMETHING IS PRESENTED OVER THE TERMINAL.
+        //
+        // This ran on every redraw with no window test at all, so while the Connection
+        // settings sheet was open this invisible catcher — sitting in the terminal
+        // BEHIND the sheet — took the keyboard straight back off the Password field.
+        // Michael, 2026-09-03, after the composer had already been guarded: "the cursur
+        // blinked a few times then went away." Guarding one thief left the other one.
+        //
+        // A presented sheet owns the key window, so this is the whole question: is the
+        // terminal actually the thing on screen?
+        let onTop = v.window?.isKeyWindow == true
+        if isFocused, onTop, !v.isFirstResponder { v.becomeFirstResponder() }
+        // Giving it UP stays unconditional — releasing the keyboard is never the thing
+        // that steals from someone else.
         if !isFocused, v.isFirstResponder { v.resignFirstResponder() }
     }
 

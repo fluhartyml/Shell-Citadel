@@ -1422,7 +1422,11 @@ struct TerminalView: View {
         switch source {
         case .you:    return TerminalAppearance.shared.mineColor(dark: dark)
         case .claude: return TerminalAppearance.shared.theirsColor(dark: dark)
-        case .system: return .secondary
+        // App notices. Neutral on purpose — neither speaker — but `.secondary` on a
+        // white background is the pale grey he photographed on 2026-09-03, and on a cold
+        // open EVERY line is a system line, so the whole first screen arrived in it.
+        // Black in light mode, with the dark branch left exactly as it was.
+        case .system: return dark ? .secondary : .black
         }
     }
 

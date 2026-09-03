@@ -56,7 +56,7 @@ enum Diagnosis {
         var connectionLost: String {
             switch self {
             case .connecting:
-                "Could not reach the Mac. It may be asleep, off this network, or Remote Login may be off."
+                "Could not reach the remote server. It may be asleep, off this network, or SSH may be off."
             case .sending:
                 "The connection dropped, so that message was not delivered. Tap Connect to try again."
             case .listening:

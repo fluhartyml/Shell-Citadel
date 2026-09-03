@@ -165,16 +165,28 @@ final class TerminalAppearance: ObservableObject {
     /// and there is exactly ONE number to change if it is wrong.
     static let dim = 0.6
 
-    /// His own lines. Always one step dimmer than Claude's, so scrolling back, his words
-    /// recede and the answers stand out.
+    // ⛔ LIGHT MODE IS BLACK TEXT. HIS RULING, 2026-09-03: *"light mode text should be
+    // black trxt."* Asked whether to keep the two tones there, he said no.
+    //
+    // The dimming table above is DARK-MODE ONLY now. It was never a light-mode answer:
+    // his green is a bright colour chosen against near-black, and multiplying its
+    // brightness produces pale green on white — low contrast in both directions at once.
+    // He opened the app cold on an iPhone 11 Pro and said so: *"light mode could use
+    // contrast."*
+    //
+    // ⚠️ DARK MODE IS UNTOUCHED, at his explicit instruction: *"the dark mode is fine do
+    // not touch."* Every branch below returns exactly what it returned before when
+    // `dark` is true.
+
+    /// His own lines. One step dimmer than Claude's on a dark background, so scrolling
+    /// back, his words recede and the answers stand out. Black in light mode.
     func mineColor(dark: Bool) -> Color {
-        Self.shift(text.color, brightness: dark ? Self.dim : Self.dim * Self.dim)
+        dark ? Self.shift(text.color, brightness: Self.dim) : .black
     }
 
-    /// Claude's lines. Full strength on a dark background; stepped down once on a light
-    /// one, because the green he chose was chosen against near-black.
+    /// Claude's lines. Full strength on a dark background. Black in light mode.
     func theirsColor(dark: Bool) -> Color {
-        Self.shift(text.color, brightness: dark ? 1 : Self.dim)
+        dark ? Self.shift(text.color, brightness: 1) : .black
     }
 
     /// Multiply brightness in HSB, clamped, so hue and saturation are untouched and the

@@ -66,8 +66,9 @@ struct TerminalTabsView: View {
     @State private var companion: UUID?
     /// Which pane a tap on a chip fills. Ignored unless the split is showing.
     @State private var focusedPane: Pane = .primary
-    /// Bumped when stored defaults change, purely to re-evaluate the chip labels.
-    @State private var labelRevision = 0
+    /// Chip labels, keyed by tab. Held as state and only reassigned when a value really
+    /// changed, so a defaults write that affects no label triggers no redraw.
+    @State private var labels: [UUID: String] = [:]
 
     private enum Pane { case primary, secondary }
 
@@ -96,15 +97,22 @@ struct TerminalTabsView: View {
             }
         }
         .onAppear(perform: restore)
-        // A chip's label is read from the profile the connection sheet writes, and that
-        // write happens inside a child view, which does not redraw this one. Without this
-        // the tab keeps its old label until something else here happens to change.
+        .onAppear(perform: refreshLabels)
+        // A chip's label lives in the profile the connection sheet writes, and that write
+        // happens inside a child view, which does not redraw this one.
+        //
+        // ⚠️ THE FIRST VERSION OF THIS BUMPED A COUNTER ON EVERY DEFAULTS CHANGE, AND THAT
+        // COULD FEED ITSELF. Connecting writes the profile to @AppStorage — a defaults
+        // change — so the redraw it triggered could produce another write and another
+        // redraw. Michael: "why cant shell citadel connect locally".
+        //
+        // Now the notification only RECOMPUTES the labels and assigns them when they
+        // actually differ. A defaults write that changes no label changes no state, so
+        // the loop has nowhere to go.
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
-            // Bumping state re-evaluates body, which re-reads every chip's label.
-            // NOT an .id() — that would rebuild the tree and destroy the live
-            // SSHSessions the TerminalViews hold as @State. See the note at the top.
-            labelRevision &+= 1
+            refreshLabels()
         }
+        .onChange(of: tabs) { _, _ in refreshLabels() }
         .onChange(of: tabs) { _, _ in persist() }
         .onChange(of: tabs) { _, new in
             // A closed tab must not stay wired to a pane.
@@ -217,6 +225,14 @@ struct TerminalTabsView: View {
     /// written again, so every tab said "New" forever no matter what it was connected to.
     /// Reading the profile the sheet already persists means renaming a connection renames
     /// its tab with no bookkeeping to keep in sync.
+    /// Recompute every chip's label and store the result ONLY if something moved.
+    /// The equality check is the whole point — see the note on the notification above.
+    private func refreshLabels() {
+        var fresh: [UUID: String] = [:]
+        for tab in tabs { fresh[tab.id] = label(for: tab) }
+        if fresh != labels { labels = fresh }
+    }
+
     private func label(for tab: TerminalTab) -> String {
         // The first tab kept the original un-suffixed key; the rest are per-tab.
         // Same resolution as the TerminalView construction above.
@@ -225,16 +241,20 @@ struct TerminalTabsView: View {
               let profile = try? JSONDecoder().decode(ConnectionProfile.self, from: data)
         else { return "remote" }
         let name = profile.name.trimmingCharacters(in: .whitespaces)
-        // "My Mac" is the untouched factory default, so it names nothing. Treated as
-        // unconfigured here for the same reason the library treats it that way when it
-        // decides whether to save a connection under its host instead.
-        return (name.isEmpty || name == "My Mac") ? "remote" : name
+        // ⚠️ NO SENTINEL. The first pass also treated "My Mac" as meaning "unconfigured",
+        // because the library treats it that way when deciding what to save a connection
+        // under. That was wrong here and Michael caught it: the sheet said "My Mac" and
+        // the tab said "remote". His rule is literal — "default is remote unless named in
+        // the connection sheet" — and "My Mac" IS a name in the sheet. Only genuinely
+        // having no name falls back.
+        return name.isEmpty ? "remote" : name
     }
 
     private func tabChip(_ tab: TerminalTab) -> some View {
         // "Selected" means on screen, which is two tabs while split.
         let isSelected = tab.id == selection || (showingSplit && tab.id == companion)
-        let title = label(for: tab)
+        // The stored label, falling back to a fresh read for a tab added this pass.
+        let title = labels[tab.id] ?? label(for: tab)
         return HStack(spacing: 5) {
             Text(title)
                 .font(TerminalFont.mono(.footnote))

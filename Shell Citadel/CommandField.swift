@@ -146,7 +146,6 @@ struct CommandField: UIViewRepresentable {
         field.delegate = context.coordinator
 
         applyTraits(to: field)
-        context.coordinator.lastStrict = strict
         field.returnKeyType = .send
 
         // His desktop terminal face, not the system mono — the whole point is that what he
@@ -163,7 +162,6 @@ struct CommandField: UIViewRepresentable {
         // nothing had happened. Three rounds of "the font is not right" were about this
         // field.
         applyFont(to: field)
-        context.coordinator.lastFontSize = max(11, TerminalAppearance.shared.fontSize)
         field.adjustsFontForContentSizeCategory = false
         // The field must never DRIVE the layout's width. A UITextField's intrinsic
         // width grows with its content, and left alone it widened the whole column —
@@ -233,28 +231,9 @@ struct CommandField: UIViewRepresentable {
     }
 
     func updateUIView(_ field: FittingTextField, context: Context) {
-        // ⚠️ ONLY WHEN THE MODE ACTUALLY CHANGES. Assigning keyboard traits on a field
-        // that is first responder makes UIKit tear down and rebuild the keyboard input
-        // session. This ran on EVERY redraw, and in attach mode a redraw fires on every
-        // incoming line — so a talkative session rebuilt the keyboard under his fingers
-        // continuously: characters never landed, the binding stayed empty (which greyed
-        // out Send), and the return key lost its Send styling.
-        // Michael, 2026-09-03: "the keyboard on the iphone doesnt echo a type when
-        // typing" / "send is greyed out and the keyboard no longer has a blue arrow".
-        if context.coordinator.lastStrict != strict {
-            context.coordinator.lastStrict = strict
-            applyTraits(to: field)
-            // The rebuild is wanted HERE — the mode really did change.
-            if field.isFirstResponder { field.reloadInputViews() }
-        }
+        applyTraits(to: field)
         // So dragging the size slider moves this field too, live, like everything else.
-        // Guarded for the same reason: a new UIFont object every redraw is a new layout
-        // pass every redraw, under a caret that is trying to stay put.
-        let size = max(11, TerminalAppearance.shared.fontSize)
-        if context.coordinator.lastFontSize != size {
-            context.coordinator.lastFontSize = size
-            applyFont(to: field)
-        }
+        applyFont(to: field)
         // Only write back when it actually differs, so the caret is not reset on
         // every keystroke as SwiftUI re-runs the body.
         if field.text != text { field.text = text }
@@ -281,11 +260,6 @@ struct CommandField: UIViewRepresentable {
         /// re-running the body with the same number must NOT re-grab the caret from
         /// something else he has tapped into.
         var lastFocusRequest = 0
-        /// The mode the keyboard traits were last written for. Traits are only
-        /// re-applied when this changes — see the note in `updateUIView`.
-        var lastStrict: Bool?
-        /// The point size the field's font was last set to, for the same reason.
-        var lastFontSize: Double?
 
         init(_ parent: CommandField) { self.parent = parent }
 

@@ -66,9 +66,6 @@ struct TerminalTabsView: View {
     @State private var companion: UUID?
     /// Which pane a tap on a chip fills. Ignored unless the split is showing.
     @State private var focusedPane: Pane = .primary
-    /// Chip labels, keyed by tab. Held as state and only reassigned when a value really
-    /// changed, so a defaults write that affects no label triggers no redraw.
-    @State private var labels: [UUID: String] = [:]
 
     private enum Pane { case primary, secondary }
 
@@ -97,22 +94,6 @@ struct TerminalTabsView: View {
             }
         }
         .onAppear(perform: restore)
-        .onAppear(perform: refreshLabels)
-        // A chip's label lives in the profile the connection sheet writes, and that write
-        // happens inside a child view, which does not redraw this one.
-        //
-        // ⚠️ THE FIRST VERSION OF THIS BUMPED A COUNTER ON EVERY DEFAULTS CHANGE, AND THAT
-        // COULD FEED ITSELF. Connecting writes the profile to @AppStorage — a defaults
-        // change — so the redraw it triggered could produce another write and another
-        // redraw. Michael: "why cant shell citadel connect locally".
-        //
-        // Now the notification only RECOMPUTES the labels and assigns them when they
-        // actually differ. A defaults write that changes no label changes no state, so
-        // the loop has nowhere to go.
-        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
-            refreshLabels()
-        }
-        .onChange(of: tabs) { _, _ in refreshLabels() }
         .onChange(of: tabs) { _, _ in persist() }
         .onChange(of: tabs) { _, new in
             // A closed tab must not stay wired to a pane.
@@ -218,45 +199,11 @@ struct TerminalTabsView: View {
         .accessibilityLabel(showingSplit ? "Show one terminal" : "Show two terminals side by side")
     }
 
-    /// The label a chip shows: the connection's own name, exactly as it reads in the
-    /// connection sheet, or "remote" until one is given.
-    ///
-    /// Derived rather than stored. `TerminalTab.name` was set once at creation and never
-    /// written again, so every tab said "New" forever no matter what it was connected to.
-    /// Reading the profile the sheet already persists means renaming a connection renames
-    /// its tab with no bookkeeping to keep in sync.
-    /// Recompute every chip's label and store the result ONLY if something moved.
-    /// The equality check is the whole point — see the note on the notification above.
-    private func refreshLabels() {
-        var fresh: [UUID: String] = [:]
-        for tab in tabs { fresh[tab.id] = label(for: tab) }
-        if fresh != labels { labels = fresh }
-    }
-
-    private func label(for tab: TerminalTab) -> String {
-        // The first tab kept the original un-suffixed key; the rest are per-tab.
-        // Same resolution as the TerminalView construction above.
-        let key = tab.id == tabs.first?.id ? "connectionProfile" : tab.profileKey
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let profile = try? JSONDecoder().decode(ConnectionProfile.self, from: data)
-        else { return "remote" }
-        let name = profile.name.trimmingCharacters(in: .whitespaces)
-        // ⚠️ NO SENTINEL. The first pass also treated "My Mac" as meaning "unconfigured",
-        // because the library treats it that way when deciding what to save a connection
-        // under. That was wrong here and Michael caught it: the sheet said "My Mac" and
-        // the tab said "remote". His rule is literal — "default is remote unless named in
-        // the connection sheet" — and "My Mac" IS a name in the sheet. Only genuinely
-        // having no name falls back.
-        return name.isEmpty ? "remote" : name
-    }
-
     private func tabChip(_ tab: TerminalTab) -> some View {
         // "Selected" means on screen, which is two tabs while split.
         let isSelected = tab.id == selection || (showingSplit && tab.id == companion)
-        // The stored label, falling back to a fresh read for a tab added this pass.
-        let title = labels[tab.id] ?? label(for: tab)
         return HStack(spacing: 5) {
-            Text(title)
+            Text(tab.name)
                 .font(TerminalFont.mono(.footnote))
                 .lineLimit(1)
             if tabs.count > 1 {
@@ -267,7 +214,7 @@ struct TerminalTabsView: View {
                         .font(.system(size: 9, weight: .bold))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Close \(title)")
+                .accessibilityLabel("Close \(tab.name)")
             }
         }
         .padding(.horizontal, 10)

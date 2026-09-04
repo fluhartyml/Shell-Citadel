@@ -123,6 +123,34 @@ struct AboutView: View {
                     }
                 }
             }
+
+                // ⚠️ WHICH BUILD IS THIS? — added 2026-09-04, and it is a diagnostic,
+                // not decoration. Every build of this app calls itself "1.0 (1)", so
+                // for weeks there was no way to tell the build on the iPad from the
+                // one on the phones. That is exactly the day this cost: the iPad kept
+                // working, the phones did not, and the difference could not be named.
+                // Michael: "we need to get the github number in a debugging display
+                // to see on the app."
+                //
+                // It is selectable on purpose — the whole point is being able to read
+                // it back to someone who cannot see the screen.
+                Section {
+                    LabeledContent("Version", value: Self.marketingVersion)
+                    LabeledContent("Commit", value: BuildStamp.commit)
+                    LabeledContent("Branch", value: BuildStamp.branch)
+                    LabeledContent("Built", value: BuildStamp.built)
+                } header: {
+                    Text("Build")
+                } footer: {
+                    // An unstamped binary is not a missing answer — it IS the answer:
+                    // this build predates the stamp, so it is an older one.
+                    Text(BuildStamp.isStamped
+                         ? "A \u{201C}+\u{201D} after the commit means this build carries changes that were never committed."
+                         : "This build was made before build stamping existed \u{2014} so it is an older build than any stamped one.")
+                }
+                .textSelection(.enabled)
+                .font(.system(.footnote, design: .monospaced))
+
             .navigationTitle("About")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingFeedback) {
@@ -139,6 +167,14 @@ struct AboutView: View {
     /// One spoken phrase and what it does. The phrase is styled as the thing you SAY,
     /// so it does not read as a heading you could paraphrase — Siri will not match a
     /// paraphrase.
+    /// `1.0 (1)` from the bundle. Kept because it is what the App Store shows, even
+    /// though it is the value that proved useless for telling builds apart.
+    static var marketingVersion: String {
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "\(v) (\(b))"
+    }
+
     private func phrase(_ spoken: String, _ effect: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\u{201C}\(spoken)\u{201D}")

@@ -1,0 +1,12 @@
+#!/bin/sh
+# Installs this repo's git hooks. Run once per clone.
+#
+# Git deliberately does not copy hooks when a repository is cloned, so a hook that only
+# exists in .git/hooks is one machine away from not existing at all. Keeping the real
+# copy in Scripts/ and installing it from there means the behaviour travels with the
+# repository instead of living on one Mac.
+set -e
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+cp "$ROOT/Scripts/post-commit" "$ROOT/.git/hooks/post-commit"
+chmod +x "$ROOT/.git/hooks/post-commit"
+echo "installed: .git/hooks/post-commit -> Scripts/stamp-build.sh"

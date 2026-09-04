@@ -1,0 +1,19 @@
+#!/bin/sh
+# Git post-commit hook — restamps the build number after every commit.
+#
+# WHY THIS IS A HOOK AND NOT A HABIT. Michael, 2026-09-04: "you need to make sure it
+# happens and you do not get complaicent and not do it in the future." A step that
+# depends on me remembering it is a step that will eventually be skipped, and the whole
+# point of the build number is that it can be trusted without checking. So the machine
+# does it.
+#
+# It runs AFTER the commit, so the count it writes is the count INCLUDING that commit —
+# which is the number the next build should carry.
+#
+# The restamp leaves project.pbxproj and BuildStamp.swift modified in the working tree.
+# That is expected and correct: those are the next build's identity, and they ride along
+# with the next commit.
+#
+# NOT INSTALLED BY CLONING — git never copies hooks. Install with:
+#     Scripts/install-hooks.sh
+exec "$(cd "$(dirname "$0")/.." && pwd)/Scripts/stamp-build.sh" >/dev/null 2>&1

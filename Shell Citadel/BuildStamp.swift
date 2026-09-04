@@ -25,13 +25,13 @@
 
 enum BuildStamp {
     /// Short SHA of HEAD when this build was stamped. "+" suffix = uncommitted changes.
-    static let commit = "68c0c9d+"
+    static let commit = "9a2233c+"
 
     /// Branch HEAD was on when this build was stamped.
-    static let branch = "location-only-on-pin-drop"
+    static let branch = "rollback-356657c"
 
     /// Local time the stamp was generated — effectively the build time.
-    static let built = "2026-09-04 05:42"
+    static let built = "2026-09-04 05:46"
 
     /// One line for a cramped display: `b958b3d · 09-04 05:40`.
     static var short: String { "\(commit) · \(built)" }

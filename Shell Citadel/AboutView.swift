@@ -136,8 +136,8 @@ struct AboutView: View {
                 // it back to someone who cannot see the screen.
                 Section {
                     LabeledContent("Version", value: Self.marketingVersion)
+                    LabeledContent("Build", value: Self.buildNumber)
                     LabeledContent("Commit", value: BuildStamp.commit)
-                    LabeledContent("Branch", value: BuildStamp.branch)
                     LabeledContent("Built", value: BuildStamp.built)
                 } header: {
                     Text("Build")
@@ -145,8 +145,8 @@ struct AboutView: View {
                     // An unstamped binary is not a missing answer — it IS the answer:
                     // this build predates the stamp, so it is an older one.
                     Text(BuildStamp.isStamped
-                         ? "A \u{201C}+\u{201D} after the commit means this build carries changes that were never committed."
-                         : "This build was made before build stamping existed \u{2014} so it is an older build than any stamped one.")
+                         ? "The build number counts commits, so it only ever goes up. It is the same number Xcode and App Store Connect show, and it points at the commit beside it. A \u{201C}+\u{201D} after the commit means this build carries changes that were never committed."
+                         : "This build was made before build numbering existed \u{2014} so it is older than any build that names a commit here.")
                 }
                 .textSelection(.enabled)
                 .font(.system(.footnote, design: .monospaced))
@@ -167,12 +167,24 @@ struct AboutView: View {
     /// One spoken phrase and what it does. The phrase is styled as the thing you SAY,
     /// so it does not read as a heading you could paraphrase — Siri will not match a
     /// paraphrase.
-    /// `1.0 (1)` from the bundle. Kept because it is what the App Store shows, even
-    /// though it is the value that proved useless for telling builds apart.
+    /// The marketing version — `1.0`. What a customer would call the release.
     static var marketingVersion: String {
-        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-        let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-        return "\(v) (\(b))"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+    }
+
+    /// The build number — the repository's commit count, e.g. `95`.
+    ///
+    /// ⚠️ THIS IS THE SAME STRING XCODE AND APP STORE CONNECT SHOW, on purpose.
+    /// Michael, 2026-09-04: "uniform viewable in the app in xcode and app store
+    /// connect." Reading it off this screen and reading it off App Store Connect must
+    /// land on the same answer, or the number is no better than the "1.0 (1)" it
+    /// replaced. It is ordinary version metadata, not a debug affordance, so it
+    /// carries no review risk.
+    ///
+    /// It counts commits, so it only ever goes up — which is what App Store Connect
+    /// requires of every upload, and what a hash could never promise.
+    static var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
     }
 
     private func phrase(_ spoken: String, _ effect: String) -> some View {
